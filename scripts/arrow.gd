@@ -95,16 +95,15 @@ func _physics_process(delta: float) -> void:
 	velocity.y -= GRAVITY * delta
 	var motion := velocity * delta
 	global_position += motion
-	if velocity.length() > 0.01:
-		# same -Z correction as _ready (see comment there)
-		look_at(global_position - 2.0 * velocity, Vector3.UP)
-
-	# swept check so fast arrows don't tunnel through thin walls
 	if motion.length() > 0.001:
+		if velocity.length() > 0.01:
+			# same -Z correction as _ready (see comment there)
+			look_at(global_position - 2.0 * velocity, Vector3.UP)
+		# swept check so fast arrows don't tunnel through thin walls
 		_ray.target_position = _ray.to_local(global_position + motion * 2.0)
-	_ray.force_raycast_update()
-	if _ray.is_colliding():
-		_hit(_ray.get_collider(), _ray.get_collision_point())
+		_ray.force_raycast_update()
+		if _ray.is_colliding():
+			_hit(_ray.get_collider(), _ray.get_collision_point())
 
 
 func _on_body_entered(body: Node3D) -> void:
@@ -119,7 +118,11 @@ func _hit(collider: Object, point: Vector3) -> void:
 	_stuck = true
 	set_physics_process(false)
 	set_deferred("monitoring", false)   # can't flip during a signal callback
-	global_position = point
+	# pull the origin back so the +Z-extending meshes don't pop through the target
+	if velocity.length() > 0.01:
+		global_position = point - velocity.normalized() * 0.3
+	else:
+		global_position = point
 	# stick for a moment, then shrink away (GL-safe fade)
 	var tw := create_tween()
 	tw.tween_interval(1.2)

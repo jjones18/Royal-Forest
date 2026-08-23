@@ -31,6 +31,7 @@ var weapon_holder: Node3D
 var _weapon_rest := Transform3D()
 var _bow_frames: Array[Sprite3D] = []   # idle + 3 draw stages
 var _melee_sprite: Sprite3D
+var _melee_tex_cache := {}   # weapon id -> Texture2D (avoid load() per tick)
 
 
 func _ready() -> void:
@@ -199,7 +200,8 @@ func _attack_pressed() -> void:
 func _attack_released() -> void:
 	if _drawing:
 		_drawing = false
-		if GameState.dead or GameState.game_won:
+		# weapon changed (or vanished) mid-draw — no shot
+		if GameState.dead or GameState.game_won or not _is_ranged():
 			return
 		if _draw_t < DRAW_TIME * MIN_DRAW_FRACTION:
 			return   # tapped too fast — treat as a mispress
@@ -231,15 +233,26 @@ func _update_viewmodel_visibility() -> void:
 	if w == "":
 		return
 	var ranged: bool = Weapons.CATALOG[w]["ranged"]
+	# don't fight _process over draw frames while a draw is in progress
 	for f in _bow_frames:
-		f.visible = ranged and f.get_index() == 0   # idle frame by default
+		f.visible = ranged and not _drawing and f.get_index() == 0
 	_melee_sprite.visible = w != "" and not ranged
 	if not ranged and w != "":
-		_melee_sprite.texture = load("res://assets/sprites/%s.png" % w)
+		if not _melee_tex_cache.has(w):
+			_melee_tex_cache[w] = load("res://assets/sprites/%s.png" % w)
+		_melee_sprite.texture = _melee_tex_cache[w]
 
 
 func _process(delta: float) -> void:
-	if weapon_holder == null or GameState.weapon == "":
+	if weapon_holder == null:
+		return
+	# dead or disarmed mid-attack: cancel any in-flight swing/draw cleanly
+	if GameState.dead or GameState.game_won or GameState.weapon == "":
+		_drawing = false
+		_swinging = false
+		for i in _bow_frames.size():
+			_bow_frames[i].visible = i == 0
+		weapon_holder.transform = _weapon_rest
 		return
 
 	if _drawing:
@@ -279,11 +292,14 @@ func _process(delta: float) -> void:
 ## Melee hit: sphere sweep in front of the camera inside an acceptance cone.
 ## Reach/arc/damage come from the weapon's catalog entry.
 func _apply_melee_hit(info: Dictionary) -> void:
+	if GameState.dead or GameState.game_won or _is_ranged():
+		return
 	var forward := -camera.global_transform.basis.z
 	forward.y = 0.0
 	forward = forward.normalized()
 	var reach: float = info["reach"]
-	var radius: float = reach - 1.4          # center distance vs outer edge
+	# band from 1.4 m out to `reach`; clamped so short weapons keep a valid sphere
+	var radius: float = maxf(0.15, reach - 1.4)
 	var center := camera.global_position + forward * (reach - radius)
 	center.y -= 1.2  # bring sweep down to torso height (camera is at 1.6)
 
@@ -295,7 +311,7 @@ func _apply_melee_hit(info: Dictionary) -> void:
 	params.collision_mask = 4  # enemies layer
 	params.exclude = [get_rid()]
 
-	var hits := get_world_3d().direct_space_state.intersect_shape(params, 8)
+	var hits := get_world_3d().direct_space_state.intersect_shape(params, 16)
 	for hit in hits:
 		var c: Object = hit["collider"]
 		if c == null or not c.has_method("take_damage"):
