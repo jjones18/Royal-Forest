@@ -1,0 +1,167 @@
+class_name SpriteEnemy
+extends CharacterBody3D
+## Billboarded sprite enemy: idle until it sees the player, chase, windup,
+## strike. Red flash + knockback on being hit; dies with a fade.
+
+signal enemy_died
+
+enum State { IDLE, CHASE, WINDUP, RECOVER, DEAD }
+
+@export var max_hp := 60
+@export var move_speed := 1.6
+@export var attack_damage := 15
+@export var sight_range := 9.0
+@export var attack_range := 1.5
+@export var windup_time := 0.55   # telegraph — the "tell" players learn to punish
+@export var recover_time := 0.8
+@export var sprite_texture: Texture2D
+@export var sprite_pixel_size := 0.028
+
+var hp: int
+var state: int = State.IDLE
+var _sprite: Sprite3D
+var _timer := 0.0
+var _bob_t := 0.0
+var _player: Node3D
+
+
+func _ready() -> void:
+	hp = max_hp
+	add_to_group("enemies")
+	collision_layer = 4
+	collision_mask = 1 | 2   # world + player
+
+	var shape := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.35
+	cap.height = 1.4
+	shape.shape = cap
+	shape.position = Vector3(0, 0.7, 0)
+	add_child(shape)
+
+	_sprite = Sprite3D.new()
+	if sprite_texture != null:
+		_sprite.texture = sprite_texture
+	_sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	_sprite.shaded = true
+	_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	_sprite.pixel_size = sprite_pixel_size
+	_sprite.position.y = 0.85
+	add_child(_sprite)
+
+
+func _physics_process(delta: float) -> void:
+	if state == State.DEAD:
+		return
+	if _player == null or not is_instance_valid(_player):
+		var nodes := get_tree().get_nodes_in_group("player")
+		_player = nodes[0] if nodes.size() > 0 else null
+
+	_timer -= delta
+	_bob_t += delta
+
+	match state:
+		State.IDLE:
+			if _can_see_player():
+				state = State.CHASE
+				GameState.say("")  # (music/sting hook later)
+		State.CHASE:
+			if _player == null:
+				state = State.IDLE
+				return
+			var to_p := _flat_to_player()
+			var dist := to_p.length()
+			if dist <= attack_range:
+				_enter_windup()
+			else:
+				var dir := to_p.normalized()
+				velocity.x = dir.x * move_speed
+				velocity.z = dir.z * move_speed
+				move_and_slide()
+				# shamble bob
+				_sprite.position.y = 0.85 + absf(sin(_bob_t * 6.0)) * 0.06
+		State.WINDUP:
+			velocity.x = 0
+			velocity.z = 0
+			if _player != null:  # keep facing
+				look_at_flat(_player.global_position)
+			if _timer <= 0.0:
+				_strike()
+		State.RECOVER:
+			velocity.x = 0
+			velocity.z = 0
+			if _timer <= 0.0:
+				state = State.CHASE
+
+
+func _can_see_player() -> bool:
+	if _player == null or GameState.dead or GameState.game_won:
+		return false
+	return _flat_to_player().length() <= sight_range
+
+
+func _flat_to_player() -> Vector3:
+	if _player == null:
+		return Vector3.ZERO
+	var v := _player.global_position - global_position
+	v.y = 0.0
+	return v
+
+
+func look_at_flat(target: Vector3) -> void:
+	var v := target - global_position
+	v.y = 0.0
+	if v.length() > 0.01:
+		rotation.y = atan2(-v.x, -v.z)
+
+
+func _enter_windup() -> void:
+	state = State.WINDUP
+	_timer = windup_time
+	# lunge-back tell: quick recoil before the strike
+	var tw := create_tween()
+	tw.tween_property(_sprite, "position:z", 0.18, windup_time * 0.6)
+	tw.tween_property(_sprite, "position:z", -0.12, windup_time * 0.25)
+	tw.tween_property(_sprite, "position:z", 0.0, windup_time * 0.15)
+
+
+func _strike() -> void:
+	if _player == null:
+		state = State.RECOVER
+		_timer = recover_time
+		return
+	var dist := _flat_to_player().length()
+	if dist <= attack_range * 1.35 and not GameState.dead and not GameState.game_won:
+		GameState.take_damage(attack_damage)
+	state = State.RECOVER
+	_timer = recover_time
+
+
+func take_damage(amount: int, from_pos: Vector3) -> void:
+	if state == State.DEAD:
+		return
+	hp -= amount
+	# red flash
+	_sprite.modulate = Color(1, 0.25, 0.25)
+	var tw := create_tween()
+	tw.tween_property(_sprite, "modulate", Color.WHITE, 0.22)
+	# knockback away from the player
+	var push := global_position - from_pos
+	push.y = 0.0
+	if push.length() > 0.01:
+		global_position += push.normalized() * 0.45
+	if hp <= 0:
+		_die()
+
+
+func _die() -> void:
+	state = State.DEAD
+	set_physics_process(false)
+	collision_layer = 0
+	collision_mask = 1
+	enemy_died.emit()
+	var tw := create_tween()
+	tw.tween_property(_sprite, "modulate:a", 0.0, 0.7)
+	tw.parallel().tween_property(_sprite, "position:y", 0.25, 0.7)
+	tw.tween_callback(queue_free)
