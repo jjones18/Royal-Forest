@@ -32,6 +32,7 @@ var _memory := 0.0               # seconds of hunt left after losing sight
 var _last_known := Vector3.ZERO
 var _pending_knockback := Vector3.ZERO   # applied next physics tick (signal-safe)
 var _flash_tw: Tween                     # red-flash tween, killed on death
+var _windup_tw: Tween                    # lunge tween, killed on death
 
 
 func _ready() -> void:
@@ -168,8 +169,9 @@ func look_at_flat(target: Vector3) -> void:
 func _enter_windup() -> void:
 	state = State.WINDUP
 	_timer = windup_time
-	# lunge-back tell: quick recoil before the strike
+	# lunge-back tell: quick recoil before the strike (stored so death can kill it)
 	var tw := create_tween()
+	_windup_tw = tw
 	tw.tween_property(_sprite, "position:z", 0.18, windup_time * 0.6)
 	tw.tween_property(_sprite, "position:z", -0.12, windup_time * 0.25)
 	tw.tween_property(_sprite, "position:z", 0.0, windup_time * 0.15)
@@ -219,6 +221,9 @@ func _die() -> void:
 	collision_mask = 1
 	if _flash_tw != null and _flash_tw.is_valid():
 		_flash_tw.kill()   # stop the flash from fighting the death fade
+	if _windup_tw != null and _windup_tw.is_valid():
+		_windup_tw.kill()  # no lingering z-wobble on the corpse
+	_sprite.modulate = Color.WHITE
 	enemy_died.emit()
 	var tw := create_tween()
 	tw.tween_property(_sprite, "modulate:a", 0.0, 0.7)

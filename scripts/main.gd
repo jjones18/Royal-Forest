@@ -93,7 +93,7 @@ func _build_lights() -> void:
 		var light := OmniLight3D.new()
 		light.position = Vector3(l[0], 2.2, l[1])
 		light.light_energy = l[2] * 0.5
-		light.omni_range = 6.0
+		light.omni_range = 3.4   # stays inside each room — no through-wall bleed
 		light.light_color = Color(0.9, 0.85, 0.8)
 		light.shadow_enabled = false   # cheap fill; torches cast the shadows
 		add_child(light)
