@@ -87,6 +87,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_begin_draw()
 	elif event.is_action_released("attack"):
 		_release_draw()
+	elif event.is_action_pressed("interact"):
+		_try_interact()
 
 
 func _physics_process(delta: float) -> void:

@@ -110,6 +110,16 @@ func _run() -> void:
 			key_area = c
 	check("key pickup exists", key_area != null)
 
+	# --- E-interact regression: player's own ray must reach the chest ---
+	# (guards against the input branch or ray wiring being dropped again)
+	player.global_position = Vector3(-3.5, 0.2, 11.0)
+	player.rotation = Vector3.ZERO          # face -z, toward the chest
+	player.camera.rotation.x = -0.45        # pitch down onto the lid
+	for i in 8:
+		await get_tree().physics_frame
+	var seen: Object = player._ray.get_collider()
+	check("interact ray sees chest", seen != null and seen.has_method("interact"))
+
 	# --- damage & death flow ---
 	GameState.take_damage(30)
 	check("damage reduces hp", GameState.hp == GameState.MAX_HP - 30)
