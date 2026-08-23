@@ -7,6 +7,19 @@
 GitHub enforces this: `main` is protected by a ruleset requiring one approving
 review. Direct pushes will be rejected.
 
+## Merging your own PR
+
+Both collaborators are registered as bypass actors, so **an author may merge
+their own PR** without waiting for the other person's review — on two
+conditions:
+
+1. The AI assistant has confirmed the PR has no merge conflicts first.
+2. Gameplay changes still get play-tested by whoever is free before merging
+   when practical.
+
+The review requirement stays in place for when you want a real second pair of
+eyes (risky refactors, big content drops) — just don't bypass then.
+
 ## Workflow
 
 1. `git checkout main && git pull`
