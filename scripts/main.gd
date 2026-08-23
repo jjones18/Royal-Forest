@@ -38,22 +38,24 @@ var LIGHTS := [
 	[-18.0, -10.0, 1.4],  # room C — brighter, cold
 ]
 
-# Wall torches: [x, z, rot_y_degrees]
+# Wall torches: [x, z, yaw_degrees] — yaw aims local -Z into the room,
+# the arm then pitches 35 deg off that wall. Positions sit just inside
+# each wall's inner surface.
 var TORCHES := [
-	# room A
-	[-5.5, 6.0, 90.0], [5.5, 6.0, -90.0],
-	[-5.5, 13.0, 90.0], [5.5, 13.0, -90.0],
-	# corridor A->B (both walls)
-	[-2.3, 3.0, 0.0], [2.3, -2.0, 180.0],
-	# room B
-	[-7.7, -4.0, 90.0], [7.7, -4.0, -90.0],
+	# room A (walls at x = +/-6)
+	[-5.7, 6.0, -90.0], [5.7, 6.0, 90.0],
+	[-5.7, 13.0, -90.0], [5.7, 13.0, 90.0],
+	# corridor A->B (walls at x = +/-2)
+	[-1.75, 3.0, -90.0], [1.75, -2.0, 90.0],
+	# room B (west/east walls x = +/-8, north wall z = -16)
+	[-7.7, -4.0, -90.0], [7.7, -4.0, 90.0],
 	[-4.0, -15.7, 180.0], [4.0, -15.7, 180.0],
-	[7.7, -12.0, -90.0],
-	# corridor B->C
-	[-9.0, -11.8, 90.0], [-13.0, -8.2, -90.0],
-	# room C (shrine)
-	[-21.7, -12.5, 0.0], [-14.3, -12.5, 180.0],
-	[-21.7, -7.5, 0.0], [-14.3, -7.5, 180.0],
+	[7.7, -12.0, 90.0],
+	# corridor B->C (walls at z = -12 and z = -8)
+	[-10.0, -11.7, 180.0], [-12.0, -8.3, 0.0],
+	# room C shrine (walls at x = -22 and x = -14)
+	[-21.7, -12.5, -90.0], [-13.7, -12.5, 90.0],
+	[-21.7, -7.5, -90.0], [-13.7, -7.5, 90.0],
 ]
 
 const PLAYER_SPAWN := Vector3(0, 0.2, 13)
@@ -88,30 +90,70 @@ func _ready() -> void:
 func _build_torches() -> void:
 	var torch_script := load("res://scripts/torch.gd")
 	var flame_tex: Texture2D = load("res://assets/sprites/torch.png")
+	var stick_mat := StandardMaterial3D.new()
+	stick_mat.albedo_color = Color(0.36, 0.24, 0.12)
+	stick_mat.roughness = 1.0
+	var band_mat := StandardMaterial3D.new()
+	band_mat.albedo_color = Color(0.30, 0.31, 0.34)
+	band_mat.metallic = 0.6
+	band_mat.roughness = 0.6
+
 	for t in TORCHES:
 		var x: float = t[0]
 		var z: float = t[1]
 		var rot_y: float = deg_to_rad(t[2])
+
 		var torch := Node3D.new()
 		torch.set_script(torch_script)
-		torch.position = Vector3(x, 1.9, z)
+		# origin sits ON the wall surface; arm leans out into the room
+		torch.position = Vector3(x, 1.55, z)
 		torch.rotation.y = rot_y
+
+		# iron mounting band flat against the wall
+		var band := MeshInstance3D.new()
+		var bmesh := BoxMesh.new()
+		bmesh.size = Vector3(0.14, 0.20, 0.04)
+		bmesh.material = band_mat
+		band.mesh = bmesh
+		band.position = Vector3(0, 0.06, 0.01)
+		torch.add_child(band)
+
+		# wooden arm, pitched ~35 degrees off the wall, tip out into the room
+		var arm := Node3D.new()
+		arm.name = "Arm"
+		arm.rotation_degrees = Vector3(-35.0, 0, 0)
+		torch.add_child(arm)
+
+		var stick := MeshInstance3D.new()
+		var smesh := BoxMesh.new()
+		smesh.size = Vector3(0.06, 0.60, 0.06)
+		smesh.material = stick_mat
+		stick.mesh = smesh
+		stick.position = Vector3(0, 0.26, 0)
+		arm.add_child(stick)
+
+		# flame + light live at the arm's tip
+		var tip := Node3D.new()
+		tip.name = "Tip"
+		tip.position = Vector3(0, 0.56, 0)
+		arm.add_child(tip)
 
 		var light := OmniLight3D.new()
 		light.name = "Light"
 		light.light_color = Color(1.0, 0.78, 0.48)   # warm firelight
 		light.shadow_enabled = true
-		torch.add_child(light)
+		light.position.y = 0.08
+		tip.add_child(light)
 
 		var spr := Sprite3D.new()
-		spr.name = "Sprite"
+		spr.name = "Flame"
 		spr.texture = flame_tex
 		spr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 		spr.shaded = false            # flames glow — ignore darkness
 		spr.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		spr.pixel_size = 0.02         # 32x64 -> ~1.3 m tall incl. sconce
-		spr.position.y = -0.25        # light sits at the flame's heart
-		torch.add_child(spr)
+		spr.pixel_size = 0.017
+		spr.position.y = 0.10         # flame heart above the stick end
+		tip.add_child(spr)
 
 		add_child(torch)
 
@@ -183,20 +225,68 @@ func _sprite_prop(texture_path: String, pixel_size: float) -> Sprite3D:
 
 
 func _build_props() -> void:
-	# chest
+	# chest — real 3D geometry: wooden base + hinged lid + iron bands
+	var wood_mat := StandardMaterial3D.new()
+	wood_mat.albedo_color = Color(0.45, 0.30, 0.16)
+	wood_mat.roughness = 1.0
+	var wood_dark := StandardMaterial3D.new()
+	wood_dark.albedo_color = Color(0.34, 0.22, 0.11)
+	wood_dark.roughness = 1.0
+	var iron_mat := StandardMaterial3D.new()
+	iron_mat.albedo_color = Color(0.42, 0.44, 0.48)
+	iron_mat.metallic = 0.7
+	iron_mat.roughness = 0.5
+
 	var chest := StaticBody3D.new()
 	chest.position = CHEST_POS
 	chest.set_script(load("res://scripts/chest.gd"))
+
 	var cs := CollisionShape3D.new()
 	var cshape := BoxShape3D.new()
-	cshape.size = Vector3(0.9, 0.8, 0.65)
+	cshape.size = Vector3(1.0, 0.85, 0.7)
 	cs.shape = cshape
-	cs.position.y = 0.4
+	cs.position.y = 0.425
 	chest.add_child(cs)
-	var ch_spr := _sprite_prop("res://assets/sprites/chest_closed.png", 0.024)
-	ch_spr.name = "Sprite"
-	ch_spr.position.y = 0.44
-	chest.add_child(ch_spr)
+
+	# base box
+	var base_mi := MeshInstance3D.new()
+	var base_mesh := BoxMesh.new()
+	base_mesh.size = Vector3(1.0, 0.55, 0.7)
+	base_mesh.material = wood_mat
+	base_mi.mesh = base_mesh
+	base_mi.position.y = 0.275
+	chest.add_child(base_mi)
+	# corner trim (dark verticals)
+	for sx in [-0.47, 0.47]:
+		for sz in [-0.32, 0.32]:
+			var post := MeshInstance3D.new()
+			var pmesh := BoxMesh.new()
+			pmesh.size = Vector3(0.07, 0.56, 0.07)
+			pmesh.material = wood_dark
+			post.mesh = pmesh
+			post.position = Vector3(sx, 0.28, sz)
+			chest.add_child(post)
+
+	# lid on a rear hinge pivot
+	var lid_pivot := Node3D.new()
+	lid_pivot.name = "LidPivot"
+	lid_pivot.position = Vector3(0, 0.55, -0.35)   # back top edge of the base
+	chest.add_child(lid_pivot)
+	var lid_mi := MeshInstance3D.new()
+	var lid_mesh := BoxMesh.new()
+	lid_mesh.size = Vector3(1.02, 0.22, 0.72)
+	lid_mesh.material = wood_dark
+	lid_mi.mesh = lid_mesh
+	lid_mi.position = Vector3(0, 0.10, 0.35)       # forward of the hinge
+	lid_pivot.add_child(lid_mi)
+	var strap := MeshInstance3D.new()
+	var strap_mesh := BoxMesh.new()
+	strap_mesh.size = Vector3(1.06, 0.24, 0.08)
+	strap_mesh.material = iron_mat
+	strap.mesh = strap_mesh
+	strap.position = Vector3(0, 0.10, 0.35)
+	lid_pivot.add_child(strap)
+
 	add_child(chest)
 
 	# key (Area3D pickup)
