@@ -51,6 +51,16 @@ func _run() -> void:
 		await get_tree().physics_frame
 	var enemies := get_tree().get_nodes_in_group("enemies")
 	check("enemies spawned", enemies.size() == 4)
+	# --- LOS: an enemy with a wall between it and the player must NOT aggro ---
+	if enemies.size() > 0:
+		player.global_position = Vector3(0, 0.2, 13)   # spawn room
+		for i in 5:
+			await get_tree().physics_frame
+		var wall_blocked := false
+		for e in enemies:
+			if is_instance_valid(e) and e.global_position.distance_to(player.global_position) > 20.0:
+				wall_blocked = e.state == e.State.IDLE or wall_blocked
+		check("enemy behind walls stays idle", wall_blocked)
 	if enemies.size() > 0:
 		var foe: Node = null
 		for e in enemies:
