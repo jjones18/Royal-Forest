@@ -119,10 +119,11 @@ func _build_torches() -> void:
 		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		torch.add_child(band)
 
-		# wooden arm, pitched ~35 degrees off the wall, tip out into the room
+		# wooden arm, pitched 45 degrees off the wall — tip UP and out into
+		# the room (negative pitch = toward local -Z = away from the wall)
 		var arm := Node3D.new()
 		arm.name = "Arm"
-		arm.rotation_degrees = Vector3(-35.0, 0, 0)
+		arm.rotation_degrees = Vector3(-45.0, 0, 0)
 		torch.add_child(arm)
 
 		var stick := MeshInstance3D.new()

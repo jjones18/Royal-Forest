@@ -6,6 +6,8 @@ extends Node3D
 @export var energy := 1.35
 @export var light_range := 7.0
 
+const FLAME_REST_Y := 0.10
+
 var _t := randf() * TAU
 
 @onready var light: OmniLight3D = $Arm/Tip/Light
@@ -26,8 +28,10 @@ func _process(delta: float) -> void:
 			+ 0.06 * sin(_t * 23.0 + 1.3) \
 			+ 0.04 * sin(_t * 41.0)
 	light.light_energy = energy * flicker
-	var s := 1.0 + (flicker - 1.0) * 0.5
+	# the STICK never moves — only the flame dances like it's burning
+	var s := 1.0 + (flicker - 1.0) * 0.6
 	flame.scale = Vector3(s, s, s)
-	# gentle sway of the whole arm, like wind through the dungeon
-	var arm: Node3D = $Arm
-	arm.rotation.z = 0.03 * sin(_t * 5.0)
+	flame.position.y = FLAME_REST_Y \
+			+ 0.012 * sin(_t * 11.0) \
+			+ 0.008 * sin(_t * 27.0 + 0.7)
+	flame.position.x = 0.006 * sin(_t * 17.0 + 2.1)
