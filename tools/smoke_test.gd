@@ -32,7 +32,7 @@ func _run() -> void:
 		return
 	var player: CharacterBody3D = players[0]
 
-	# --- sword pickup via chest ---
+	# --- bow pickup via chest ---
 	var chest: Node3D = null
 	for c in main.get_children():
 		if c.get_script() != null and str(c.get_script().resource_path).ends_with("chest.gd"):
@@ -42,10 +42,10 @@ func _run() -> void:
 		chest.interact()
 		for i in 3:
 			await get_tree().physics_frame
-		check("chest gives sword", GameState.has_sword)
-		check("sword viewmodel visible", player.sword_holder.visible)
+		check("chest gives bow", GameState.has_bow)
+		check("bow viewmodel visible", player.bow_holder.visible)
 
-	# --- melee swing kills an enemy ---
+	# --- arrow kills an enemy ---
 	player.global_position = Vector3(-4.0, 0.2, -9.0)
 	for i in 5:
 		await get_tree().physics_frame
@@ -60,12 +60,20 @@ func _run() -> void:
 				break
 		if foe == null:
 			foe = enemies[0]
-		player.global_position = foe.global_position + Vector3(0, 0.2, 1.2)
+		player.global_position = foe.global_position + Vector3(0, 0.2, 4.0)
 		for i in 5:
 			await get_tree().physics_frame
 		var hp_before: int = foe.hp
-		player._apply_hit()
-		check("melee hit damages enemy", foe.hp < hp_before or foe.state == foe.State.DEAD)
+		# fire an arrow straight at the foe from the player's camera
+		var dir: Vector3 = (foe.global_position + Vector3(0, 0.8, 0)) \
+				- (player.global_position + Vector3(0, 1.6, 0))
+		var arrow := Arrow.make(player.global_position + Vector3(0, 1.6, 0), dir)
+		main.add_child(arrow)
+		var frames := 0
+		while is_instance_valid(foe) and foe.hp == hp_before and frames < 120:
+			await get_tree().physics_frame
+			frames += 1
+		check("arrow hit damages enemy", is_instance_valid(foe) == false or foe.hp < hp_before or foe.state == foe.State.DEAD)
 		# finish it off to confirm death path
 		while is_instance_valid(foe) and foe.state != foe.State.DEAD:
 			foe.take_damage(100, player.global_position)
