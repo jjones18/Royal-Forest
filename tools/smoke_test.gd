@@ -32,7 +32,7 @@ func _run() -> void:
 		return
 	var player: CharacterBody3D = players[0]
 
-	# --- bow pickup via chest ---
+	# --- weapon pickup via chest (weighted roll) ---
 	var chest: Node3D = null
 	for c in main.get_children():
 		if c.get_script() != null and str(c.get_script().resource_path).ends_with("chest.gd"):
@@ -42,8 +42,9 @@ func _run() -> void:
 		chest.interact()
 		for i in 3:
 			await get_tree().physics_frame
-		check("chest gives bow", GameState.has_bow)
-		check("bow viewmodel visible", player.bow_holder.visible)
+		check("chest grants a weapon", GameState.weapon != "")
+		check("weapon id is valid", Weapons.CATALOG.has(GameState.weapon))
+		check("viewmodel visible", player.weapon_holder.visible)
 
 	# --- arrow kills an enemy ---
 	player.global_position = Vector3(-4.0, 0.2, -9.0)
@@ -88,6 +89,35 @@ func _run() -> void:
 		while is_instance_valid(foe) and foe.state != foe.State.DEAD:
 			foe.take_damage(100, player.global_position)
 		check("enemy dies", not is_instance_valid(foe) or foe.state == foe.State.DEAD)
+
+	# --- weapon roll distribution: chances sum to ~1 and every id is valid ---
+	var weights := 0.0
+	for id in Weapons.CATALOG:
+		weights += Weapons.CATALOG[id]["chance"]
+	check("weapon chances are sane", absf(weights - 1.0) < 0.001)
+	# roll() must only ever return catalog ids
+	var rolls_valid := true
+	for i in 200:
+		if not Weapons.CATALOG.has(Weapons.roll()):
+			rolls_valid = false
+			break
+	check("200 weapon rolls all valid", rolls_valid)
+
+	# --- melee swing kills an enemy (force sword) ---
+	GameState.give_weapon("sword")
+	player.global_position = Vector3(-4.0, 0.2, -9.0)
+	for i in 5:
+		await get_tree().physics_frame
+	var enemies2 := get_tree().get_nodes_in_group("enemies")
+	if enemies2.size() > 0:
+		var foe_m: Node = enemies2[0]
+		player.global_position = foe_m.global_position + Vector3(0, 0.2, 1.2)
+		for i in 5:
+			await get_tree().physics_frame
+		var hp_before_m: int = foe_m.hp
+		player._apply_melee_hit(Weapons.CATALOG["sword"])
+		check("melee hit damages enemy", not is_instance_valid(foe_m) \
+				or foe_m.hp < hp_before_m or foe_m.state == foe_m.State.DEAD)
 
 	# --- door locked without key ---
 	GameState.has_key = false

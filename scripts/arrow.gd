@@ -68,8 +68,12 @@ func _ready() -> void:
 
 	body_entered.connect(_on_body_entered)
 
+	# Godot's forward is -Z, and look_at() aims -Z at the target — so aim it
+	# BACKWARD along the velocity to make local +Z (where the head meshes are)
+	# point along the flight direction.
 	if velocity.length() > 0.01:
-		look_at(global_position + velocity, Vector3.UP)
+		var fwd := global_position + velocity
+		look_at(fwd - 2.0 * velocity, Vector3.UP)
 
 
 ## Convenience for tests / scripted shots: aim from `from` toward `dir`.
@@ -92,7 +96,8 @@ func _physics_process(delta: float) -> void:
 	var motion := velocity * delta
 	global_position += motion
 	if velocity.length() > 0.01:
-		look_at(global_position + velocity, Vector3.UP)
+		# same -Z correction as _ready (see comment there)
+		look_at(global_position - 2.0 * velocity, Vector3.UP)
 
 	# swept check so fast arrows don't tunnel through thin walls
 	if motion.length() > 0.001:
