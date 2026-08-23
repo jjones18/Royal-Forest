@@ -32,6 +32,7 @@ func reset() -> void:
 	has_key = false
 	dead = false
 	game_won = false
+	_invuln = 0.0   # don't carry i-frames into a fresh run
 
 
 func take_damage(amount: int) -> void:

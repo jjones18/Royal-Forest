@@ -47,12 +47,12 @@ var TORCHES := [
 	[-5.7, 13.0, -90.0], [5.7, 13.0, 90.0],
 	# corridor A->B (walls at x = +/-2)
 	[-1.75, 3.0, -90.0], [1.75, -2.0, 90.0],
-	# room B (west/east walls x = +/-8, north wall z = -16)
-	[-7.7, -4.0, -90.0], [7.7, -4.0, 90.0],
+	# room B — side walls clear of the south-wall slab seam
+	[-7.7, -6.5, -90.0], [7.7, -6.5, 90.0],
 	[-4.0, -15.7, 180.0], [4.0, -15.7, 180.0],
 	[7.7, -12.0, 90.0],
-	# corridor B->C (walls at z = -12 and z = -8)
-	[-10.0, -11.7, 180.0], [-12.0, -8.3, 0.0],
+	# corridor B->C (inner faces of the z=-12 and z=-8 wall slabs)
+	[-10.0, -11.2, 180.0], [-12.0, -8.8, 0.0],
 	# room C shrine (walls at x = -22 and x = -14)
 	[-21.7, -12.5, -90.0], [-13.7, -12.5, 90.0],
 	[-21.7, -7.5, -90.0], [-13.7, -7.5, 90.0],
@@ -75,6 +75,7 @@ var ENEMIES := [
 
 func _ready() -> void:
 	_build_environment()
+	_build_lights()
 	_build_floor()
 	for w in WALLS:
 		_wall(w[0], w[1], w[2], w[3])
@@ -83,6 +84,19 @@ func _ready() -> void:
 	_build_enemies()
 	_build_player()
 	_build_hud()
+
+
+func _build_lights() -> void:
+	# soft fill lights from the LIGHTS table — keep energy low so torches
+	# stay the primary light source
+	for l in LIGHTS:
+		var light := OmniLight3D.new()
+		light.position = Vector3(l[0], 2.2, l[1])
+		light.light_energy = l[2] * 0.5
+		light.omni_range = 6.0
+		light.light_color = Color(0.9, 0.85, 0.8)
+		light.shadow_enabled = false   # cheap fill; torches cast the shadows
+		add_child(light)
 
 
 # -------------------------------------------------------------------- torches

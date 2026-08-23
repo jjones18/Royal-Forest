@@ -31,6 +31,7 @@ var _sees_player := false
 var _memory := 0.0               # seconds of hunt left after losing sight
 var _last_known := Vector3.ZERO
 var _pending_knockback := Vector3.ZERO   # applied next physics tick (signal-safe)
+var _flash_tw: Tween                     # red-flash tween, killed on death
 
 
 func _ready() -> void:
@@ -106,6 +107,7 @@ func _physics_process(delta: float) -> void:
 					state = State.IDLE   # reached where you were; give up
 					return
 				var dir := to_t.normalized()
+				velocity.y -= 14.0 * delta   # gravity — stay glued to the floor
 				velocity.x = dir.x * move_speed
 				velocity.z = dir.z * move_speed
 				move_and_slide()
@@ -189,10 +191,17 @@ func take_damage(amount: int, from_pos: Vector3) -> void:
 	if state == State.DEAD:
 		return
 	hp -= amount
-	# red flash
+	# being hit wakes it up, even from full stealth (arrow from beyond sight)
+	if state == State.IDLE:
+		state = State.CHASE
+		_sees_player = false
+		_memory = memory_time
+		_last_known = from_pos
+		GameState.say("")
+	# red flash (store the tween so a killing blow can't fight the death fade)
 	_sprite.modulate = Color(1, 0.25, 0.25)
-	var tw := create_tween()
-	tw.tween_property(_sprite, "modulate", Color.WHITE, 0.22)
+	_flash_tw = create_tween()
+	_flash_tw.tween_property(_sprite, "modulate", Color.WHITE, 0.22)
 	# knockback away from the player — queued and applied next physics tick
 	# through move_and_collide(), so walls stop it (no more clipping through)
 	var push := global_position - from_pos
@@ -208,6 +217,8 @@ func _die() -> void:
 	set_physics_process(false)
 	collision_layer = 0
 	collision_mask = 1
+	if _flash_tw != null and _flash_tw.is_valid():
+		_flash_tw.kill()   # stop the flash from fighting the death fade
 	enemy_died.emit()
 	var tw := create_tween()
 	tw.tween_property(_sprite, "modulate:a", 0.0, 0.7)

@@ -52,16 +52,23 @@ func _run() -> void:
 		await get_tree().physics_frame
 	var enemies := get_tree().get_nodes_in_group("enemies")
 	check("enemies spawned", enemies.size() == 4)
-	# --- LOS: an enemy with a wall between it and the player must NOT aggro ---
+	# --- LOS: EVERY distant enemy must stay idle behind walls (strict) ---
 	if enemies.size() > 0:
+		# neutralize any aggro picked up while the suite passed through room B,
+		# so we measure pure wall-blocking from a clean IDLE slate
+		for e in enemies:
+			if is_instance_valid(e):
+				e.state = e.State.IDLE
+				e._memory = 0.0
 		player.global_position = Vector3(0, 0.2, 13)   # spawn room
 		for i in 5:
 			await get_tree().physics_frame
-		var wall_blocked := false
+		var all_idle := true
 		for e in enemies:
 			if is_instance_valid(e) and e.global_position.distance_to(player.global_position) > 20.0:
-				wall_blocked = e.state == e.State.IDLE or wall_blocked
-		check("enemy behind walls stays idle", wall_blocked)
+				if e.state != e.State.IDLE:
+					all_idle = false
+		check("enemy behind walls stays idle", all_idle)
 	if enemies.size() > 0:
 		var foe: Node = null
 		for e in enemies:
@@ -119,6 +126,26 @@ func _run() -> void:
 		check("melee hit damages enemy", not is_instance_valid(foe_m) \
 				or foe_m.hp < hp_before_m or foe_m.state == foe_m.State.DEAD)
 
+	# --- melee whiff: out of reach must not damage ---
+	if enemies2.size() > 0:
+		var foe_w: Node = enemies2[1] if enemies2.size() > 1 else enemies2[0]
+		if is_instance_valid(foe_w):
+			# stand well beyond the sword's 3.5 m reach
+			player.global_position = foe_w.global_position + Vector3(0, 0.2, 8.0)
+			for i in 5:
+				await get_tree().physics_frame
+			var hp_before_w: int = foe_w.hp
+			player._apply_melee_hit(Weapons.CATALOG["sword"])
+			check("melee whiff out of range", is_instance_valid(foe_w) \
+					and foe_w.hp == hp_before_w)
+
+	# --- i-frames: damage during invuln window must no-op ---
+	var hp_pre := GameState.hp
+	GameState.take_damage(10)          # starts a 0.4s invuln window
+	GameState.take_damage(10)          # same frame — must be ignored
+	check("i-frames block repeat hits", GameState.hp == hp_pre - 10)
+	await get_tree().create_timer(0.5).timeout
+
 	# --- door locked without key ---
 	GameState.has_key = false
 	var door: Node3D = null
@@ -151,6 +178,8 @@ func _run() -> void:
 	check("interact ray sees chest", seen != null and seen.has_method("interact"))
 
 	# --- damage & death flow ---
+	GameState.hp = GameState.MAX_HP   # normalize (earlier tests spent HP)
+	GameState._invuln = 0.0
 	GameState.take_damage(30)
 	check("damage reduces hp", GameState.hp == GameState.MAX_HP - 30)
 	await get_tree().create_timer(0.5).timeout   # past the i-frame window
