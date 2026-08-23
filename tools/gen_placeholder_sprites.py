@@ -201,4 +201,29 @@ for row in range(4):
         x += w
 save(img.convert("RGBA"), "wall_stone.png")
 
+# ---------------- wall torch: 32x64 ------------------------------------------
+img = Image.new("RGBA", (32, 64), (0, 0, 0, 0))
+d = ImageDraw.Draw(img)
+WOOD_T = (96, 62, 34)
+WOOD_TD = (66, 42, 22)
+IRON_T = (110, 112, 120)
+FLAME_Y = (255, 226, 120)
+FLAME_O = (240, 150, 50)
+FLAME_R = (190, 70, 30)
+# wooden handle
+px(d, 14, 26, WOOD_T, 4, 30)
+px(d, 14, 26, WOOD_TD, 1, 30)
+# iron sconce ring + drip pan
+px(d, 9, 40, IRON_T, 14, 3)
+px(d, 8, 43, IRON_T, 16, 2)
+px(d, 12, 36, IRON_T, 2, 4)
+px(d, 18, 36, IRON_T, 2, 4)
+# flame — layered teardrop
+d.ellipse([10, 8, 22, 30], fill=FLAME_R)
+d.ellipse([12, 12, 20, 28], fill=FLAME_O)
+d.ellipse([14, 16, 18, 26], fill=FLAME_Y)
+px(d, 15, 6, FLAME_O, 2, 4)   # licking tip
+px(d, 12, 10, FLAME_R, 2, 3)
+save(img, "torch.png")
+
 print("all placeholder textures generated in", OUT)

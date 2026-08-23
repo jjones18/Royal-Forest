@@ -38,6 +38,24 @@ var LIGHTS := [
 	[-18.0, -10.0, 1.4],  # room C — brighter, cold
 ]
 
+# Wall torches: [x, z, rot_y_degrees]
+var TORCHES := [
+	# room A
+	[-5.5, 6.0, 90.0], [5.5, 6.0, -90.0],
+	[-5.5, 13.0, 90.0], [5.5, 13.0, -90.0],
+	# corridor A->B (both walls)
+	[-2.3, 3.0, 0.0], [2.3, -2.0, 180.0],
+	# room B
+	[-7.7, -4.0, 90.0], [7.7, -4.0, -90.0],
+	[-4.0, -15.7, 180.0], [4.0, -15.7, 180.0],
+	[7.7, -12.0, -90.0],
+	# corridor B->C
+	[-9.0, -11.8, 90.0], [-13.0, -8.2, -90.0],
+	# room C (shrine)
+	[-21.7, -12.5, 0.0], [-14.3, -12.5, 180.0],
+	[-21.7, -7.5, 0.0], [-14.3, -7.5, 180.0],
+]
+
 const PLAYER_SPAWN := Vector3(0, 0.2, 13)
 const CHEST_POS := Vector3(-3.5, 0, 9)
 const KEY_POS := Vector3(6.0, 0, -14.0)
@@ -59,9 +77,43 @@ func _ready() -> void:
 	for w in WALLS:
 		_wall(w[0], w[1], w[2], w[3])
 	_build_props()
+	_build_torches()
 	_build_enemies()
 	_build_player()
 	_build_hud()
+
+
+# -------------------------------------------------------------------- torches
+
+func _build_torches() -> void:
+	var torch_script := load("res://scripts/torch.gd")
+	var flame_tex: Texture2D = load("res://assets/sprites/torch.png")
+	for t in TORCHES:
+		var x: float = t[0]
+		var z: float = t[1]
+		var rot_y: float = deg_to_rad(t[2])
+		var torch := Node3D.new()
+		torch.set_script(torch_script)
+		torch.position = Vector3(x, 1.9, z)
+		torch.rotation.y = rot_y
+
+		var light := OmniLight3D.new()
+		light.name = "Light"
+		light.light_color = Color(1.0, 0.78, 0.48)   # warm firelight
+		light.shadow_enabled = true
+		torch.add_child(light)
+
+		var spr := Sprite3D.new()
+		spr.name = "Sprite"
+		spr.texture = flame_tex
+		spr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		spr.shaded = false            # flames glow — ignore darkness
+		spr.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		spr.pixel_size = 0.02         # 32x64 -> ~1.3 m tall incl. sconce
+		spr.position.y = -0.25        # light sits at the flame's heart
+		torch.add_child(spr)
+
+		add_child(torch)
 
 
 # --------------------------------------------------------------- environment
@@ -71,11 +123,11 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.01, 0.01, 0.02)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.20, 0.20, 0.30)
-	env.ambient_light_energy = 0.45
+	env.ambient_light_color = Color(0.30, 0.29, 0.36)
+	env.ambient_light_energy = 0.75
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.04, 0.04, 0.07)
-	env.fog_density = 0.055
+	env.fog_light_color = Color(0.07, 0.06, 0.09)
+	env.fog_density = 0.038
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
