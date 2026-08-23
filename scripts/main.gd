@@ -116,6 +116,7 @@ func _build_torches() -> void:
 		bmesh.material = band_mat
 		band.mesh = bmesh
 		band.position = Vector3(0, 0.06, 0.01)
+		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		torch.add_child(band)
 
 		# wooden arm, pitched ~35 degrees off the wall, tip out into the room
@@ -130,6 +131,7 @@ func _build_torches() -> void:
 		smesh.material = stick_mat
 		stick.mesh = smesh
 		stick.position = Vector3(0, 0.26, 0)
+		stick.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF  # no self-shadow smear
 		arm.add_child(stick)
 
 		# flame + light live at the arm's tip
@@ -153,6 +155,7 @@ func _build_torches() -> void:
 		spr.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		spr.pixel_size = 0.017
 		spr.position.y = 0.10         # flame heart above the stick end
+		spr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		tip.add_child(spr)
 
 		add_child(torch)
