@@ -32,6 +32,11 @@ var _memory := 0.0               # seconds of hunt left after losing sight
 var _last_known := Vector3.ZERO
 var _pending_knockback := Vector3.ZERO   # applied next physics tick (signal-safe)
 var _flash_tw: Tween                     # red-flash tween, killed on death
+var _windup_tw: Tween                    # lunge tween, killed on death
+var _burn_ticks := 0                     # remaining burn damage ticks (0 = not burning)
+var _burn_timer := 0.0
+var _slow_factor := 1.0                  # 1.0 = normal, 0.7 = slowed 30%
+var _slow_timer := 0.0
 
 
 func _ready() -> void:
@@ -78,6 +83,7 @@ func _physics_process(delta: float) -> void:
 	_timer -= delta
 	_bob_t += delta
 	_update_sight(delta)
+	_update_statuses(delta)
 
 	# knockback is queued by take_damage (a physics callback) and applied here,
 	# with collision — no more teleporting through walls
@@ -108,8 +114,9 @@ func _physics_process(delta: float) -> void:
 					return
 				var dir := to_t.normalized()
 				velocity.y -= 14.0 * delta   # gravity — stay glued to the floor
-				velocity.x = dir.x * move_speed
-				velocity.z = dir.z * move_speed
+				var spd := move_speed_current() * 1.2   # +20% global aggression
+				velocity.x = dir.x * spd
+				velocity.z = dir.z * spd
 				move_and_slide()
 				# shamble bob
 				_sprite.position.y = 0.85 + absf(sin(_bob_t * 6.0)) * 0.06
@@ -125,6 +132,45 @@ func _physics_process(delta: float) -> void:
 			velocity.z = 0
 			if _timer <= 0.0:
 				state = State.CHASE
+
+
+## Status effects: burn (DoT) and slow. Applied by spell projectiles.
+func apply_burn(ticks: int, tick_damage: int) -> void:
+	_burn_ticks = maxi(_burn_ticks, ticks)
+	_burn_timer = 0.0
+	if _burn_ticks == ticks:   # fresh burn — first tick lands immediately
+		take_damage(tick_damage, global_position + Vector3.FORWARD)
+
+
+func apply_slow(factor: float, duration: float) -> void:
+	_slow_factor = minf(_slow_factor, factor)
+	_slow_timer = maxf(_slow_timer, duration)
+
+
+func _update_statuses(delta: float) -> void:
+	if state == State.DEAD:
+		return
+	if _burn_ticks > 0:
+		_burn_timer -= delta
+		if _burn_timer <= 0.0:
+			_burn_ticks -= 1
+			_burn_timer = 0.8   # one burn tick every 0.8 s
+			_sprite.modulate = Color(1.0, 0.45, 0.2)   # ember flash per tick
+			var tw := create_tween()
+			tw.tween_property(_sprite, "modulate", Color.WHITE, 0.35)
+			take_damage(6, global_position + Vector3.FORWARD)
+			if state == State.DEAD:
+				return
+	elif _slow_factor < 1.0 or _slow_timer > 0.0:
+		pass   # fall through to slow handling below
+	if _slow_timer > 0.0:
+		_slow_timer -= delta
+		if _slow_timer <= 0.0:
+			_slow_factor = 1.0   # thaw
+
+
+func move_speed_current() -> float:
+	return move_speed * _slow_factor
 
 
 ## True when the player is within sight range AND nothing solid blocks the
@@ -168,8 +214,9 @@ func look_at_flat(target: Vector3) -> void:
 func _enter_windup() -> void:
 	state = State.WINDUP
 	_timer = windup_time
-	# lunge-back tell: quick recoil before the strike
+	# lunge-back tell: quick recoil before the strike (stored so death can kill it)
 	var tw := create_tween()
+	_windup_tw = tw
 	tw.tween_property(_sprite, "position:z", 0.18, windup_time * 0.6)
 	tw.tween_property(_sprite, "position:z", -0.12, windup_time * 0.25)
 	tw.tween_property(_sprite, "position:z", 0.0, windup_time * 0.15)
@@ -219,6 +266,9 @@ func _die() -> void:
 	collision_mask = 1
 	if _flash_tw != null and _flash_tw.is_valid():
 		_flash_tw.kill()   # stop the flash from fighting the death fade
+	if _windup_tw != null and _windup_tw.is_valid():
+		_windup_tw.kill()  # no lingering z-wobble on the corpse
+	_sprite.modulate = Color.WHITE
 	enemy_died.emit()
 	var tw := create_tween()
 	tw.tween_property(_sprite, "modulate:a", 0.0, 0.7)

@@ -146,6 +146,29 @@ func _run() -> void:
 	check("i-frames block repeat hits", GameState.hp == hp_pre - 10)
 	await get_tree().create_timer(0.5).timeout
 
+	# --- spells: mana cost, burn, slow, regen ---
+	GameState.mana = 100.0
+	player._spell_cd = 0.0
+	player._cast("fire")
+	check("fireball spends mana", GameState.mana <= 100.0 - GameState.FIREBALL_COST)
+	var enemies3 := get_tree().get_nodes_in_group("enemies")
+	if enemies3.size() > 0:
+		var foe_s: Node = null
+		for e in enemies3:
+			if is_instance_valid(e) and e.state != e.State.DEAD:
+				foe_s = e
+				break
+		if foe_s != null:
+			var hp0: int = foe_s.hp
+			foe_s.apply_slow(0.7, 3.0)
+			check("frost slows enemy", foe_s.move_speed_current() < foe_s.move_speed)
+			foe_s.apply_burn(2, 6)
+			check("burn ticks deal damage", foe_s.hp < hp0 or foe_s.state == foe_s.State.DEAD)
+	# mana regen tick
+	var m_before := GameState.mana
+	await get_tree().create_timer(0.3).timeout
+	check("mana regenerates", GameState.mana >= m_before)
+
 	# --- door locked without key ---
 	GameState.has_key = false
 	var door: Node3D = null

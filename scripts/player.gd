@@ -31,6 +31,14 @@ var weapon_holder: Node3D
 var _weapon_rest := Transform3D()
 var _bow_frames: Array[Sprite3D] = []   # idle + 3 draw stages
 var _melee_sprite: Sprite3D
+var _melee_tex_cache := {}   # weapon id -> Texture2D (avoid load() per tick)
+var _sword_len_scale := 1.0  # viewmodel blade-length scale for the sword
+
+
+## Stretch the melee sprite along the blade axis (local Y after the roll).
+func _apply_melee_scale(w: String) -> void:
+	var s := _sword_len_scale if w == "sword" else 1.0
+	_melee_sprite.scale = Vector3(1.0, s, 1.0)
 
 
 func _ready() -> void:
@@ -83,7 +91,7 @@ func _build_weapon_viewmodel() -> void:
 		var f := _make_vm_sprite(path)
 		f.pixel_size = 0.0018     # 256 px -> ~0.46 m
 		f.position = Vector3(0.34, -0.34, -0.66)
-		f.rotation_degrees = Vector3(-4, -10, -8)
+		f.rotation_degrees = Vector3(-4, 0, -8)
 		f.visible = path.ends_with("bow.png")   # idle frame first
 		weapon_holder.add_child(f)
 		_bow_frames.append(f)
@@ -95,6 +103,9 @@ func _build_weapon_viewmodel() -> void:
 	_melee_sprite.rotation_degrees = Vector3(-6, -14, -14)
 	_melee_sprite.visible = false
 	weapon_holder.add_child(_melee_sprite)
+	# sword blade rendered 50% longer (scaled along the blade axis after roll)
+	_sword_len_scale = 1.5
+	_apply_melee_scale("sword")
 
 	_weapon_rest = weapon_holder.transform
 
@@ -115,10 +126,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		_attack_released()
 	elif event.is_action_pressed("interact"):
 		_try_interact()
+	elif event.is_action_pressed("cast_fire"):
+		_cast("fire")
+	elif event.is_action_pressed("cast_frost"):
+		_cast("frost")
 
 
 func _physics_process(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)
+	_spell_cd = maxf(0.0, _spell_cd - delta)
 	_bare_hand_msg_cd = maxf(0.0, _bare_hand_msg_cd - delta)
 	if weapon_holder != null:
 		_update_viewmodel_visibility()
@@ -199,7 +215,8 @@ func _attack_pressed() -> void:
 func _attack_released() -> void:
 	if _drawing:
 		_drawing = false
-		if GameState.dead or GameState.game_won:
+		# weapon changed (or vanished) mid-draw — no shot
+		if GameState.dead or GameState.game_won or not _is_ranged():
 			return
 		if _draw_t < DRAW_TIME * MIN_DRAW_FRACTION:
 			return   # tapped too fast — treat as a mispress
@@ -225,23 +242,59 @@ func _fire_arrow() -> void:
 	tw.tween_property(weapon_holder, "position", _weapon_rest.origin, 0.18)
 
 
+# --------------------------------------------------------------------- spells
+
+var _spell_cd := 0.0
+
+const SPELL_COOLDOWN := 0.6
+
+
+## Cast a spell bolt. Costs mana; works with any weapon (or none) in hand.
+func _cast(kind: String) -> void:
+	if GameState.dead or GameState.game_won or _drawing or _swinging:
+		return
+	if _spell_cd > 0.0:
+		return
+	var cost: float = GameState.FIREBALL_COST if kind == "fire" else GameState.FROST_COST
+	if not GameState.try_spend_mana(cost):
+		GameState.say("Not enough mana.")
+		return
+	_spell_cd = SPELL_COOLDOWN
+	var forward := -camera.global_transform.basis.z
+	var origin := camera.global_position + forward * ARROW_SPAWN_AHEAD
+	var bolt := SpellBolt.make(origin, forward, kind)
+	get_tree().current_scene.add_child(bolt)
+
+
 func _update_viewmodel_visibility() -> void:
 	var w: String = GameState.weapon
 	weapon_holder.visible = w != ""
 	if w == "":
 		return
 	var ranged: bool = Weapons.CATALOG[w]["ranged"]
+	# don't fight _process over draw frames while a draw is in progress
 	for f in _bow_frames:
-		f.visible = ranged and f.get_index() == 0   # idle frame by default
+		f.visible = ranged and not _drawing and f.get_index() == 0
 	_melee_sprite.visible = w != "" and not ranged
 	if not ranged and w != "":
-		_melee_sprite.texture = load("res://assets/sprites/%s.png" % w)
+		if not _melee_tex_cache.has(w):
+			_melee_tex_cache[w] = load("res://assets/sprites/%s.png" % w)
+		_melee_sprite.texture = _melee_tex_cache[w]
+		_apply_melee_scale(w)
 
 
 func _process(delta: float) -> void:
-	if weapon_holder == null or GameState.weapon == "":
+	if weapon_holder == null:
+		return
+	# dead or disarmed mid-attack: cancel any in-flight swing/draw cleanly
+	if GameState.dead or GameState.game_won or GameState.weapon == "":
+		_drawing = false
+		_swinging = false
+		_set_bow_frames_visible(false)
+		weapon_holder.transform = _weapon_rest
 		return
 
+	var ranged := _is_ranged()
 	if _drawing:
 		_draw_t += delta
 		var f := clampf(_draw_t / DRAW_TIME, 0.0, 1.0)
@@ -249,10 +302,14 @@ func _process(delta: float) -> void:
 		var stage := mini(int(f * 3.0), 2) + 1   # 1..3
 		for i in _bow_frames.size():
 			_bow_frames[i].visible = i == stage
+		# arrow tracks the aim: yaw the sprite with camera pitch so the nocked
+		# arrow points where the player is looking (down = tip dips, up = rises)
+		for fr in _bow_frames:
+			fr.rotation_degrees.y = -rad_to_deg(camera.rotation.x) * 0.6
 		# subtle whole-bow pull toward the shoulder as tension builds
 		var target := _weapon_rest.origin + Vector3(-0.05 * f, -0.015 * f, 0.06 * f)
 		weapon_holder.position = weapon_holder.position.lerp(target, 12.0 * delta)
-	elif _swinging:
+	elif _swinging and not ranged:
 		_swing_t += delta
 		var info: Dictionary = Weapons.CATALOG[GameState.weapon]
 		var st: float = info["swing_time"]
@@ -269,21 +326,29 @@ func _process(delta: float) -> void:
 			_swinging = false
 			weapon_holder.transform = _weapon_rest
 	else:
-		# settle back to rest
-		for i in _bow_frames.size():
-			_bow_frames[i].visible = i == 0
+		# settle back to rest — bow frames only when actually holding the bow
+		_set_bow_frames_visible(ranged, 0)
 		weapon_holder.transform = weapon_holder.transform.interpolate_with(
 				_weapon_rest, minf(10.0 * delta, 1.0))
+
+
+## Single source of truth for which bow frames show (none when melee/unarmed).
+func _set_bow_frames_visible(show: bool, stage: int = 0) -> void:
+	for i in _bow_frames.size():
+		_bow_frames[i].visible = show and i == stage
 
 
 ## Melee hit: sphere sweep in front of the camera inside an acceptance cone.
 ## Reach/arc/damage come from the weapon's catalog entry.
 func _apply_melee_hit(info: Dictionary) -> void:
+	if GameState.dead or GameState.game_won or _is_ranged():
+		return
 	var forward := -camera.global_transform.basis.z
 	forward.y = 0.0
 	forward = forward.normalized()
 	var reach: float = info["reach"]
-	var radius: float = reach - 1.4          # center distance vs outer edge
+	# band from 1.4 m out to `reach`; clamped so short weapons keep a valid sphere
+	var radius: float = maxf(0.15, reach - 1.4)
 	var center := camera.global_position + forward * (reach - radius)
 	center.y -= 1.2  # bring sweep down to torso height (camera is at 1.6)
 
@@ -295,7 +360,7 @@ func _apply_melee_hit(info: Dictionary) -> void:
 	params.collision_mask = 4  # enemies layer
 	params.exclude = [get_rid()]
 
-	var hits := get_world_3d().direct_space_state.intersect_shape(params, 8)
+	var hits := get_world_3d().direct_space_state.intersect_shape(params, 16)
 	for hit in hits:
 		var c: Object = hit["collider"]
 		if c == null or not c.has_method("take_damage"):
