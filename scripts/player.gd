@@ -126,10 +126,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		_attack_released()
 	elif event.is_action_pressed("interact"):
 		_try_interact()
+	elif event.is_action_pressed("cast_fire"):
+		_cast("fire")
+	elif event.is_action_pressed("cast_frost"):
+		_cast("frost")
 
 
 func _physics_process(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)
+	_spell_cd = maxf(0.0, _spell_cd - delta)
 	_bare_hand_msg_cd = maxf(0.0, _bare_hand_msg_cd - delta)
 	if weapon_holder != null:
 		_update_viewmodel_visibility()
@@ -235,6 +240,30 @@ func _fire_arrow() -> void:
 	tw.tween_property(weapon_holder, "position:z", _weapon_rest.origin.z + 0.05,
 			0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_property(weapon_holder, "position", _weapon_rest.origin, 0.18)
+
+
+# --------------------------------------------------------------------- spells
+
+var _spell_cd := 0.0
+
+const SPELL_COOLDOWN := 0.6
+
+
+## Cast a spell bolt. Costs mana; works with any weapon (or none) in hand.
+func _cast(kind: String) -> void:
+	if GameState.dead or GameState.game_won or _drawing or _swinging:
+		return
+	if _spell_cd > 0.0:
+		return
+	var cost: float = GameState.FIREBALL_COST if kind == "fire" else GameState.FROST_COST
+	if not GameState.try_spend_mana(cost):
+		GameState.say("Not enough mana.")
+		return
+	_spell_cd = SPELL_COOLDOWN
+	var forward := -camera.global_transform.basis.z
+	var origin := camera.global_position + forward * ARROW_SPAWN_AHEAD
+	var bolt := SpellBolt.make(origin, forward, kind)
+	get_tree().current_scene.add_child(bolt)
 
 
 func _update_viewmodel_visibility() -> void:
