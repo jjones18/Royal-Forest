@@ -15,8 +15,8 @@ func interact() -> void:
 	if opened:
 		return
 	opened = true
-	GameState.give_sword()
-	GameState.say("An old blade, still keen. (Left-click to swing)")
+	GameState.give_bow()
+	GameState.say("A hunter's bow. (Hold left-click to draw, release to loose)")
 	var tw := create_tween()
 	tw.tween_property(lid_pivot, "rotation_degrees:x", -105.0, 0.5)\
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

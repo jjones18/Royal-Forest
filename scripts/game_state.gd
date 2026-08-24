@@ -11,7 +11,7 @@ signal won
 const MAX_HP := 100
 
 var hp: int = MAX_HP
-var has_sword := false
+var has_bow := false
 var has_key := false
 var dead := false
 var game_won := false
@@ -24,7 +24,7 @@ func _process(delta: float) -> void:
 
 func reset() -> void:
 	hp = MAX_HP
-	has_sword = false
+	has_bow = false
 	has_key = false
 	dead = false
 	game_won = false
@@ -42,8 +42,8 @@ func take_damage(amount: int) -> void:
 		died.emit()
 
 
-func give_sword() -> void:
-	has_sword = true
+func give_bow() -> void:
+	has_bow = true
 
 
 func give_key() -> void:

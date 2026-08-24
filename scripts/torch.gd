@@ -4,7 +4,10 @@ extends Node3D
 ##   Torch/Arm/Stick, Torch/Arm/Tip/{Flame, Light}
 
 @export var energy := 1.35
-@export var light_range := 7.0
+## Kept under half the narrowest wall spacing (~4 m corridors) so the light
+## sphere never crosses geometry — no bleed-through into other rooms.
+@export var light_range := 4.2
+@export var light_attenuation := 2.0
 
 const FLAME_REST_Y := 0.10
 
@@ -17,6 +20,7 @@ var _t := randf() * TAU
 func _ready() -> void:
 	light.light_energy = energy
 	light.omni_range = light_range
+	light.omni_attenuation = light_attenuation
 	# desync each torch so they don't flicker in unison
 	_t += global_position.x * 3.1 + global_position.z * 1.7
 
