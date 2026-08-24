@@ -32,6 +32,13 @@ var _weapon_rest := Transform3D()
 var _bow_frames: Array[Sprite3D] = []   # idle + 3 draw stages
 var _melee_sprite: Sprite3D
 var _melee_tex_cache := {}   # weapon id -> Texture2D (avoid load() per tick)
+var _sword_len_scale := 1.0  # viewmodel blade-length scale for the sword
+
+
+## Stretch the melee sprite along the blade axis (local Y after the roll).
+func _apply_melee_scale(w: String) -> void:
+	var s := _sword_len_scale if w == "sword" else 1.0
+	_melee_sprite.scale = Vector3(1.0, s, 1.0)
 
 
 func _ready() -> void:
@@ -84,7 +91,7 @@ func _build_weapon_viewmodel() -> void:
 		var f := _make_vm_sprite(path)
 		f.pixel_size = 0.0018     # 256 px -> ~0.46 m
 		f.position = Vector3(0.34, -0.34, -0.66)
-		f.rotation_degrees = Vector3(-4, -10, -8)
+		f.rotation_degrees = Vector3(-4, 0, -8)
 		f.visible = path.ends_with("bow.png")   # idle frame first
 		weapon_holder.add_child(f)
 		_bow_frames.append(f)
@@ -96,6 +103,9 @@ func _build_weapon_viewmodel() -> void:
 	_melee_sprite.rotation_degrees = Vector3(-6, -14, -14)
 	_melee_sprite.visible = false
 	weapon_holder.add_child(_melee_sprite)
+	# sword blade rendered 50% longer (scaled along the blade axis after roll)
+	_sword_len_scale = 1.5
+	_apply_melee_scale("sword")
 
 	_weapon_rest = weapon_holder.transform
 
@@ -241,6 +251,7 @@ func _update_viewmodel_visibility() -> void:
 		if not _melee_tex_cache.has(w):
 			_melee_tex_cache[w] = load("res://assets/sprites/%s.png" % w)
 		_melee_sprite.texture = _melee_tex_cache[w]
+		_apply_melee_scale(w)
 
 
 func _process(delta: float) -> void:
@@ -262,6 +273,10 @@ func _process(delta: float) -> void:
 		var stage := mini(int(f * 3.0), 2) + 1   # 1..3
 		for i in _bow_frames.size():
 			_bow_frames[i].visible = i == stage
+		# arrow tracks the aim: yaw the sprite with camera pitch so the nocked
+		# arrow points where the player is looking (down = tip dips, up = rises)
+		for fr in _bow_frames:
+			fr.rotation_degrees.y = -rad_to_deg(camera.rotation.x) * 0.6
 		# subtle whole-bow pull toward the shoulder as tension builds
 		var target := _weapon_rest.origin + Vector3(-0.05 * f, -0.015 * f, 0.06 * f)
 		weapon_holder.position = weapon_holder.position.lerp(target, 12.0 * delta)
