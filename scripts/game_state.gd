@@ -12,6 +12,8 @@ const MAX_HP := 100
 
 var hp: int = MAX_HP
 var has_bow := false
+var has_melee := false
+var weapon := ""          # id from Weapons.CATALOG; "" = unarmed
 var has_key := false
 var dead := false
 var game_won := false
@@ -25,9 +27,12 @@ func _process(delta: float) -> void:
 func reset() -> void:
 	hp = MAX_HP
 	has_bow = false
+	has_melee = false
+	weapon = ""
 	has_key = false
 	dead = false
 	game_won = false
+	_invuln = 0.0   # don't carry i-frames into a fresh run
 
 
 func take_damage(amount: int) -> void:
@@ -42,8 +47,12 @@ func take_damage(amount: int) -> void:
 		died.emit()
 
 
-func give_bow() -> void:
-	has_bow = true
+func give_weapon(id: String) -> void:
+	weapon = id
+	if Weapons.CATALOG[id]["ranged"]:
+		has_bow = true
+	else:
+		has_melee = true
 
 
 func give_key() -> void:

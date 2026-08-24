@@ -1,6 +1,6 @@
 extends StaticBody3D
-## Chest: interact to open. First open grants the sword.
-## Built from 3D boxes (base + hinged lid); lid swings open on first use.
+## Chest: interact to open. Grants a weapon — weighted random roll
+## (see Weapons.CATALOG for the chances). Lid swings open on first use.
 
 @onready var lid_pivot: Node3D = $LidPivot
 
@@ -15,8 +15,10 @@ func interact() -> void:
 	if opened:
 		return
 	opened = true
-	GameState.give_bow()
-	GameState.say("A hunter's bow. (Hold left-click to draw, release to loose)")
+	var weapon_id: String = Weapons.roll()
+	GameState.give_weapon(weapon_id)
+	var info: Dictionary = Weapons.CATALOG[weapon_id]
+	GameState.say(info["pickup_text"])
 	var tw := create_tween()
-	tw.tween_property(lid_pivot, "rotation_degrees:x", -105.0, 0.5)\
+	tw.tween_property(lid_pivot, "rotation_degrees:x", -105.0, 0.5) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

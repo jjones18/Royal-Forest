@@ -18,6 +18,12 @@ func interact() -> void:
 	if GameState.has_key:
 		opened = true
 		GameState.say("The lock gives way.")
+		# visuals slide up; collision drops immediately so the opening door
+		# can't sweep a player standing in the doorway
+		set_deferred("collision_layer", 0)
+		for c in get_children():
+			if c is CollisionShape3D:
+				c.set_deferred("disabled", true)
 		var tw := create_tween()
 		tw.tween_property(self, "position:y", position.y + 2.6, 1.2)\
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
