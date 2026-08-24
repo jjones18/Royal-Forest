@@ -261,11 +261,11 @@ func _process(delta: float) -> void:
 	if GameState.dead or GameState.game_won or GameState.weapon == "":
 		_drawing = false
 		_swinging = false
-		for i in _bow_frames.size():
-			_bow_frames[i].visible = i == 0
+		_set_bow_frames_visible(false)
 		weapon_holder.transform = _weapon_rest
 		return
 
+	var ranged := _is_ranged()
 	if _drawing:
 		_draw_t += delta
 		var f := clampf(_draw_t / DRAW_TIME, 0.0, 1.0)
@@ -280,7 +280,7 @@ func _process(delta: float) -> void:
 		# subtle whole-bow pull toward the shoulder as tension builds
 		var target := _weapon_rest.origin + Vector3(-0.05 * f, -0.015 * f, 0.06 * f)
 		weapon_holder.position = weapon_holder.position.lerp(target, 12.0 * delta)
-	elif _swinging:
+	elif _swinging and not ranged:
 		_swing_t += delta
 		var info: Dictionary = Weapons.CATALOG[GameState.weapon]
 		var st: float = info["swing_time"]
@@ -297,11 +297,16 @@ func _process(delta: float) -> void:
 			_swinging = false
 			weapon_holder.transform = _weapon_rest
 	else:
-		# settle back to rest
-		for i in _bow_frames.size():
-			_bow_frames[i].visible = i == 0
+		# settle back to rest — bow frames only when actually holding the bow
+		_set_bow_frames_visible(ranged, 0)
 		weapon_holder.transform = weapon_holder.transform.interpolate_with(
 				_weapon_rest, minf(10.0 * delta, 1.0))
+
+
+## Single source of truth for which bow frames show (none when melee/unarmed).
+func _set_bow_frames_visible(show: bool, stage: int = 0) -> void:
+	for i in _bow_frames.size():
+		_bow_frames[i].visible = show and i == stage
 
 
 ## Melee hit: sphere sweep in front of the camera inside an acceptance cone.
