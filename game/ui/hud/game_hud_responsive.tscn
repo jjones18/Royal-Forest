@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/ui/hud/game_hud_responsive.gd" id="1_responsive"]
+
+[node name="ResponsiveGameHud" type="CanvasLayer"]
+script = ExtResource("1_responsive")

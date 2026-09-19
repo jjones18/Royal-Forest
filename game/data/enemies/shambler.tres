@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/data/schema/enemy_definition.gd" id="1_enemy"]
+
+[resource]
+script = ExtResource("1_enemy")
+id = &"enemy.shambler"
+display_name = "Shambler"
+max_hp = 80.0
+detection_range = 11.0
+leash_range = 15.0
+line_of_sight_grace_seconds = 1.0
+search_duration_seconds = 5.0
+move_speed = 2.0
+search_speed_multiplier = 0.8
+pursuit_turn_speed_degrees = 540.0
+windup_turn_speed_degrees = 45.0
+active_turn_speed_degrees = 0.0
+home_arrival_tolerance = 0.15
+navigation_clearance = 0.65
+hit_nudge_distance = 0.12
+attack_range = 1.65
+attack_reach_lenience = 0.35
+attack_arc_degrees = 55.0
+windup_seconds = 0.65
+active_seconds = 0.16
+recovery_seconds = 0.72
+damage = 24.0

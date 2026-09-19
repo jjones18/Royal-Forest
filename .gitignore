@@ -3,3 +3,5 @@
 /android/
 *.translation
 export_presets.cfg
+/artifacts/*
+!/artifacts/.gdignore

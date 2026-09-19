@@ -1,0 +1,32 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Test Royal Forest
+Comment=Play and test the current checked-out Royal Forest build
+Icon=applications-games
+Exec=/mnt/storage/Git/royal-forest/tools/testing_menu.sh
+Path=/mnt/storage/Git/royal-forest
+Terminal=false
+StartupNotify=true
+Categories=Game;
+Actions=Play;Tests;Guide;Recordings;PackageRecording;
+
+[Desktop Action Play]
+Name=Play Current Build
+Exec=/mnt/storage/Git/royal-forest/tools/testing_menu.sh --play
+
+[Desktop Action Tests]
+Name=Run All Automated Tests
+Exec=/mnt/storage/Git/royal-forest/tools/testing_menu.sh --tests
+
+[Desktop Action Guide]
+Name=Open Current Playtest Guide
+Exec=/mnt/storage/Git/royal-forest/tools/testing_menu.sh --guide
+
+[Desktop Action Recordings]
+Name=Open Diagnostic Recordings
+Exec=/mnt/storage/Git/royal-forest/tools/testing_menu.sh --open-recordings
+
+[Desktop Action PackageRecording]
+Name=Package Newest Diagnostic Recording
+Exec=/mnt/storage/Git/royal-forest/tools/testing_menu.sh --package-latest-recording
