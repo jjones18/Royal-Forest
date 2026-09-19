@@ -2,6 +2,7 @@ class_name PlayerController
 extends CharacterBody3D
 
 signal attack_requested
+signal cast_requested(origin: Vector3, direction: Vector3)
 signal restart_requested
 signal combat_feedback(kind: StringName, text: String)
 
@@ -49,6 +50,9 @@ func simulate_command(command: InputCommand, delta: float) -> void:
 	actions.advance(delta)
 	if actions.consume_attack_hit():
 		attack_requested.emit()
+	if actions.consume_cast_release():
+		var cast_direction := (-camera.global_transform.basis.z).normalized()
+		cast_requested.emit(camera.global_position, cast_direction)
 	if actions.phase == PlayerActionMachine.Phase.DODGE:
 		var local_dodge := Vector3(actions.dodge_direction.x, 0.0, actions.dodge_direction.y)
 		var world_dodge := global_transform.basis * local_dodge
@@ -67,6 +71,8 @@ func apply_command(command: InputCommand, delta: float) -> void:
 		restart_requested.emit()
 	if command.attack_pressed:
 		actions.request(PlayerActionRequest.new(PlayerActionRequest.Kind.ATTACK))
+	if command.cast_pressed:
+		actions.request(PlayerActionRequest.new(PlayerActionRequest.Kind.CAST))
 	if command.dodge_pressed:
 		actions.request(PlayerActionRequest.new(PlayerActionRequest.Kind.DODGE, command.move))
 	if command.guard_released:

@@ -24,6 +24,7 @@ func sample() -> InputCommand:
 	command.look_rate = raw_stick_look if raw_stick_look.length() > TUNING.stick_deadzone else Vector2.ZERO
 	_look_accumulator = Vector2.ZERO
 	command.attack_pressed = Input.is_action_just_pressed("attack") and not _suppress_attack_once
+	command.cast_pressed = Input.is_action_just_pressed("cast")
 	_suppress_attack_once = false
 	command.dodge_pressed = Input.is_action_just_pressed("dodge")
 	command.guard_pressed = Input.is_action_just_pressed("guard")

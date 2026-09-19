@@ -5,6 +5,7 @@ var move: Vector2 = Vector2.ZERO
 var look: Vector2 = Vector2.ZERO
 var look_rate: Vector2 = Vector2.ZERO
 var attack_pressed := false
+var cast_pressed := false
 var dodge_pressed := false
 var guard_pressed := false
 var guard_released := false

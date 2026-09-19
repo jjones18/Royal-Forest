@@ -339,13 +339,17 @@ M1 hard human gate passes. Route blockout scope, spell choice, Insight hook, and
 
 The playable scene already lives under `game/world/`; `EnemyDefinition` has a stable ID; and the HUD uses anchored, scale-safe containers. Before authored M2e route production, complete the remaining foundations in this order:
 
-1. **M2a:** spell schema/record and mana owner behavior; begin registry coverage.
+1. **M2a — complete:** spell schema/record and mana owner behavior; initial registry coverage for spells.
 2. **M2b:** vessel model and committed interruption behavior.
 3. **M2c:** `WorldState`, `NarrativeState`, checkpoint/death/respawn, versioned `SaveManager`, save schema v1, and atomic/backup recovery tests.
 4. **M2d:** `Inventory`, attributes/respec, settings persistence, map state, complete in-scope registry/validator.
 5. **M2e:** populate route-facing narrative content, then author Root-Crown/Crowned Hunt content; do not introduce a new persistence owner here.
 
 Immutable tuning must be duplicated into per-session runtime state before settings can mutate it. Each foundation is test-first and receives its own local checkpoint commit; no M2e content may paper over a missing owner or persistence contract.
+
+**M2a implemented scope:** `PlayerStats` now owns 100 max mana, starts full, delays recovery for 2.0 seconds after casts or damage, and restores 2.5 mana/second. The authored `spell.spectral-bolt` costs 25 mana and deals 30 damage through data-driven 0.28/0.08/0.44-second cast phases; its projectile travels at 16 m/s up to 24 m with a 0.16 m radius. `ContentRegistry` currently validates and indexes spells only; complete in-scope registry coverage remains M2d work. Focused tests cover mana boundaries, schema/registry rejection, cast commitments and buffering, camera-forward release, projectile enemy/world/range behavior, playground integration, and responsive mana HUD layout. M2b–M2e are not marked complete and no M2e route content was produced.
+
+Green pursuit and recovery re-aim rapidly (540°/s); orange windup permits only slow limited turning (45°/s); only the red active strike is direction-committed (0°/s).
 
 ### M2.1 — Inventory, equipment, spell, and vessel
 

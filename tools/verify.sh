@@ -40,6 +40,9 @@ run_checked() {
 }
 
 printf 'Godot: %s (%s)\n' "$GODOT" "$("$GODOT" --version)"
+printf '\n== documentation consistency ==\n'
+"$SCRIPT_DIR/docs_consistency.sh" --self-test
+"$SCRIPT_DIR/docs_consistency.sh"
 printf '\n== mutation-sensitive negative gates ==\n'
 GODOT="$GODOT" "$SCRIPT_DIR/negative_gates.sh"
 run_checked "import" "$LOG_DIR/import.log" "" "$GODOT" --headless --path "$PROJECT" --import

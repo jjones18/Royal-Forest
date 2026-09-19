@@ -6,6 +6,7 @@ const TUNING: PlayerTuning = preload("res://game/data/tuning/player_default.tres
 var player: PlayerController
 var hp_bar: ProgressBar
 var stamina_bar: ProgressBar
+var mana_bar: ProgressBar
 var state_label: Label
 var guard_label: Label
 var feedback_label: Label
@@ -87,6 +88,7 @@ func _process(delta: float) -> void:
 		return
 	hp_bar.value = player.stats.hp
 	stamina_bar.value = player.stats.stamina
+	mana_bar.value = player.stats.mana
 	state_label.text = "ACTION: %s%s" % [PlayerActionMachine.Phase.keys()[player.actions.phase], (" — " + player.actions.blocked_reason) if not player.actions.blocked_reason.is_empty() else ""]
 	guard_label.text = "SHIELD RAISED  •  %.0f%% BLOCK  •  CHIP DAMAGE" % (TUNING.guard_damage_reduction * 100.0) if player.actions.phase == PlayerActionMachine.Phase.GUARD else ""
 	if feedback_remaining > 0.0:
@@ -107,23 +109,26 @@ func _on_combat_feedback(kind: StringName, text: String) -> void:
 
 func _build_status_panel() -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(330, 122)
+	panel.custom_minimum_size = Vector2(330, 148)
 	var rows := VBoxContainer.new()
-	rows.add_child(_label("ROYAL FOREST — M1 COMBAT PROOF"))
+	rows.add_child(_label("ROYAL FOREST — M2 FIRST PLAYABLE"))
 	var hp := _resource_row("HP", Color(0.72, 0.12, 0.1))
 	hp_bar = hp["bar"]
 	rows.add_child(hp["row"])
 	var stamina := _resource_row("STAMINA", Color(0.2, 0.68, 0.3))
 	stamina_bar = stamina["bar"]
 	rows.add_child(stamina["row"])
+	var mana := _resource_row("MANA", Color(0.2, 0.45, 0.9))
+	mana_bar = mana["bar"]
+	rows.add_child(mana["row"])
 	panel.add_child(rows)
 	return panel
 
 
 func _build_instruction_panel() -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(390, 102)
-	var label := _label("WASD / Left Stick: move  •  Mouse / Right Stick: look\nLMB / RT: attack  •  Space / A: dodge\nRMB / LT: guard  •  R / Y: reset")
+	panel.custom_minimum_size = Vector2(410, 122)
+	var label := _label("WASD / Left Stick: move  •  Mouse / Right Stick: look\nLMB / RT: attack  •  Q / Right Shoulder: Spectral Bolt\nSpace / A: dodge  •  RMB / LT: guard  •  R / Y: reset")
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_color_override("font_color", Color(0.95, 0.9, 0.7))
 	panel.add_child(label)

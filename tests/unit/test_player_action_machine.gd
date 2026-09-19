@@ -83,3 +83,106 @@ func test_large_delta_walks_attack_phases_deterministically(assertions: Assertio
 	machine.advance(TUNING.attack_windup_seconds + TUNING.attack_active_seconds + TUNING.attack_recovery_seconds)
 	assertions.equal(machine.phase, PlayerActionMachine.Phase.FREE)
 	return true
+
+func test_cast_spends_on_accept_and_releases_once_at_active(assertions: Assertions, _fixture: RefCounted) -> bool:
+	var machine := _machine()
+	var spell := machine.spell
+	assertions.is_true(machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.CAST)))
+	assertions.equal(machine.stats.mana, 100.0 - spell.mana_cost)
+	assertions.equal(machine.phase, PlayerActionMachine.Phase.CAST_WINDUP)
+	assertions.is_false(machine.consume_cast_release())
+	machine.advance(spell.cast_windup_seconds)
+	assertions.equal(machine.phase, PlayerActionMachine.Phase.CAST_ACTIVE)
+	assertions.is_true(machine.consume_cast_release())
+	assertions.is_false(machine.consume_cast_release(), "cast release must be available exactly once")
+	machine.advance(spell.cast_active_seconds)
+	assertions.equal(machine.phase, PlayerActionMachine.Phase.CAST_RECOVERY)
+	machine.advance(spell.cast_recovery_seconds)
+	assertions.equal(machine.phase, PlayerActionMachine.Phase.FREE)
+	return true
+
+func test_large_delta_preserves_cast_release_event(assertions: Assertions, _fixture: RefCounted) -> bool:
+	var machine := _machine()
+	var spell := machine.spell
+	assertions.is_true(machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.CAST)))
+	machine.advance(spell.cast_windup_seconds + spell.cast_active_seconds + spell.cast_recovery_seconds)
+	assertions.equal(machine.phase, PlayerActionMachine.Phase.FREE)
+	assertions.is_true(machine.consume_cast_release(), "a single large frame must not drop the cast release event")
+	assertions.is_false(machine.consume_cast_release(), "preserved release event must still be consumed exactly once")
+	return true
+
+func test_interruption_clears_pending_attack_and_cast_events(assertions: Assertions, _fixture: RefCounted) -> bool:
+	var attack_machine := _machine()
+	attack_machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.ATTACK))
+	attack_machine.advance(TUNING.attack_windup_seconds)
+	assertions.equal(attack_machine.phase, PlayerActionMachine.Phase.ATTACK_ACTIVE)
+	attack_machine.receive_damage(1.0)
+	assertions.equal(attack_machine.phase, PlayerActionMachine.Phase.HURT)
+	assertions.is_false(attack_machine.consume_attack_hit(), "interrupted attack must not retain a deferred hit")
+	var cast_machine := _machine()
+	cast_machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.CAST))
+	cast_machine.advance(cast_machine.spell.cast_windup_seconds)
+	assertions.equal(cast_machine.phase, PlayerActionMachine.Phase.CAST_ACTIVE)
+	cast_machine.receive_damage(1.0)
+	assertions.equal(cast_machine.phase, PlayerActionMachine.Phase.HURT)
+	assertions.is_false(cast_machine.consume_cast_release(), "interrupted cast must not retain a deferred release")
+	return true
+
+func test_cast_rejects_insufficient_mana_before_commitment(assertions: Assertions, _fixture: RefCounted) -> bool:
+	var machine := _machine()
+	machine.stats.mana = machine.spell.mana_cost - 0.01
+	assertions.is_false(machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.CAST)))
+	assertions.equal(machine.phase, PlayerActionMachine.Phase.FREE)
+	assertions.equal(machine.blocked_reason, "insufficient mana")
+	return true
+
+func test_cast_is_blocked_during_dodge(assertions: Assertions, _fixture: RefCounted) -> bool:
+	var machine := _machine()
+	machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.DODGE))
+	var mana_before := machine.stats.mana
+	assertions.is_false(machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.CAST)), "cast must be blocked during DODGE commitment")
+	assertions.equal(machine.stats.mana, mana_before, "dodge-blocked cast must not spend mana")
+	return true
+
+func test_cast_is_blocked_during_other_commitments(assertions: Assertions, _fixture: RefCounted) -> bool:
+	var cases: Array[PlayerActionMachine] = []
+	var attacking := _machine()
+	attacking.request(PlayerActionRequest.new(PlayerActionRequest.Kind.ATTACK))
+	cases.append(attacking)
+	var guarding := _machine()
+	guarding.request(PlayerActionRequest.new(PlayerActionRequest.Kind.GUARD_START))
+	cases.append(guarding)
+	var hurt := _machine()
+	hurt.receive_damage(1.0)
+	cases.append(hurt)
+	var dead := _machine()
+	dead.receive_damage(1000.0)
+	cases.append(dead)
+	for machine in cases:
+		var mana_before := machine.stats.mana
+		assertions.is_false(machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.CAST)), "cast must be blocked during %s" % PlayerActionMachine.Phase.keys()[machine.phase])
+		assertions.equal(machine.stats.mana, mana_before, "blocked cast must not spend mana")
+	return true
+
+func test_cast_buffers_only_in_last_recovery_window(assertions: Assertions, _fixture: RefCounted) -> bool:
+	var machine := _machine()
+	machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.ATTACK))
+	machine.advance(TUNING.attack_windup_seconds + TUNING.attack_active_seconds + TUNING.attack_recovery_seconds - 0.1)
+	assertions.is_true(machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.CAST)))
+	assertions.equal(machine.stats.mana, 100.0, "buffering must defer spend until commitment starts")
+	machine.advance(0.1)
+	assertions.equal(machine.phase, PlayerActionMachine.Phase.CAST_WINDUP)
+	assertions.equal(machine.stats.mana, 75.0)
+	return true
+
+func test_buffered_cast_fails_closed_if_mana_is_gone_at_commitment(assertions: Assertions, _fixture: RefCounted) -> bool:
+	var machine := _machine()
+	machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.ATTACK))
+	machine.advance(TUNING.attack_windup_seconds + TUNING.attack_active_seconds + TUNING.attack_recovery_seconds - 0.1)
+	assertions.is_true(machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.CAST)))
+	machine.stats.mana = 0.0
+	machine.advance(0.1)
+	assertions.equal(machine.phase, PlayerActionMachine.Phase.FREE, "buffered cast without mana must remain uncommitted")
+	assertions.equal(machine.blocked_reason, "insufficient mana")
+	assertions.is_false(machine.consume_cast_release())
+	return true

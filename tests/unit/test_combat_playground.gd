@@ -233,6 +233,86 @@ func test_recorded_green_recovery_reaims_at_full_pursuit_speed(assertions: Asser
 	return true
 
 
+func test_cast_uses_camera_forward_including_pitch(assertions: Assertions, fixture: RefCounted) -> bool:
+	var playground: CombatPlayground = PLAYGROUND.instantiate()
+	fixture.add_node(playground)
+	await fixture.physics_frames(2)
+	var player := playground.player
+	player.set_physics_process(false)
+	player.look_pitch = deg_to_rad(-30.0)
+	player.camera.rotation.x = player.look_pitch
+	var capture := {"count": 0, "origin": Vector3.ZERO, "direction": Vector3.ZERO}
+	player.cast_requested.connect(func(origin: Vector3, direction: Vector3) -> void:
+		capture["count"] += 1
+		capture["origin"] = origin
+		capture["direction"] = direction
+	)
+	var command := InputCommand.new()
+	command.cast_pressed = true
+	player.simulate_command(command, 0.0)
+	player.simulate_command(InputCommand.new(), player.actions.spell.cast_windup_seconds)
+	var expected := (-player.camera.global_transform.basis.z).normalized()
+	assertions.equal(capture["count"], 1)
+	assertions.is_true(capture["direction"].is_equal_approx(expected), "release direction must use normalized camera forward")
+	assertions.is_true(absf(capture["direction"].y) > 0.2, "camera pitch must affect free aim")
+	assertions.is_true(capture["origin"].is_equal_approx(player.camera.global_position), "bolt collision sweep must begin at the camera without a muzzle gap")
+	return true
+
+func test_production_cast_cannot_cross_thin_wall_at_camera(assertions: Assertions, fixture: RefCounted) -> bool:
+	var playground: CombatPlayground = PLAYGROUND.instantiate()
+	fixture.add_node(playground)
+	await fixture.physics_frames(2)
+	var player := playground.player
+	var enemy := playground.primary_enemy
+	player.set_physics_process(false)
+	enemy.set_physics_process(false)
+	var direction := (-player.camera.global_transform.basis.z).normalized()
+	var wall := StaticBody3D.new()
+	wall.collision_layer = 1
+	wall.collision_mask = 0
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(1.0, 1.0, 0.1)
+	collision.shape = shape
+	wall.add_child(collision)
+	playground.add_child(wall)
+	wall.global_position = player.camera.global_position + direction * 0.3
+	await fixture.physics_frames(1)
+	var hp_before := enemy.hp
+	var command := InputCommand.new()
+	command.cast_pressed = true
+	player.simulate_command(command, 0.0)
+	player.simulate_command(InputCommand.new(), player.actions.spell.cast_windup_seconds)
+	var projectile := playground.get_children().filter(func(child: Node) -> bool: return child is SpellProjectile)
+	assertions.equal(projectile.size(), 1, "production cast must spawn one bolt before collision resolution")
+	await fixture.physics_frames(2)
+	assertions.equal(enemy.hp, hp_before, "thin wall between camera and muzzle distance must block Spectral Bolt")
+	if not projectile.is_empty():
+		assertions.is_false(is_instance_valid(projectile[0]), "wall-blocked bolt must despawn")
+	return true
+
+func test_playground_bolt_damages_once_spends_and_regenerates_mana(assertions: Assertions, fixture: RefCounted) -> bool:
+	var playground: CombatPlayground = PLAYGROUND.instantiate()
+	fixture.add_node(playground)
+	await fixture.physics_frames(2)
+	var player := playground.player
+	var enemy := playground.primary_enemy
+	player.set_physics_process(false)
+	enemy.set_physics_process(false)
+	var hp_before := enemy.hp
+	var command := InputCommand.new()
+	command.cast_pressed = true
+	player.simulate_command(command, 0.0)
+	assertions.equal(player.stats.mana, 75.0, "accepted playground cast must spend authored cost")
+	player.simulate_command(InputCommand.new(), player.actions.spell.cast_windup_seconds)
+	await fixture.physics_frames(20)
+	assertions.equal(enemy.hp, hp_before - 30.0, "free-aim path must damage Shambler once")
+	await fixture.physics_frames(5)
+	assertions.equal(enemy.hp, hp_before - 30.0)
+	player.stats.advance(3.0)
+	assertions.is_true(player.stats.mana > 75.0, "mana must regenerate after the two-second post-cast delay")
+	return true
+
 func _facing_error_degrees(enemy: EnemyController, target: Vector3) -> float:
 	var offset := target - enemy.global_position
 	var target_yaw := atan2(-offset.x, -offset.z)

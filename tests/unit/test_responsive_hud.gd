@@ -18,6 +18,12 @@ func test_layout_stays_inside_1280x720_and_960x540(assertions: Assertions, fixtu
 		for control in hud.root_control.find_children("*", "Control", true, false):
 			assertions.equal(control.mouse_filter, Control.MOUSE_FILTER_IGNORE, "HUD control %s must not intercept gameplay mouse input" % control.name)
 		assertions.equal(hud.root_control.mouse_filter, Control.MOUSE_FILTER_IGNORE, "HUD root must not intercept gameplay mouse input")
+		assertions.is_true(hud.mana_bar != null, "HUD must include a mana bar")
+		var all_text := ""
+		for label in hud.root_control.find_children("*", "Label", true, false):
+			all_text += (label as Label).text + "\n"
+		assertions.is_true(all_text.contains("M2 FIRST PLAYABLE"), "HUD header must identify M2 first playable")
+		assertions.is_true(all_text.contains("Q / Right Shoulder: Spectral Bolt"), "HUD instructions must show keyboard/controller cast parity")
 		viewport.queue_free()
 		await fixture.process_frames(1)
 	return true

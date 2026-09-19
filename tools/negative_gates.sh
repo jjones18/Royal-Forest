@@ -34,6 +34,9 @@ tar -C "$PROJECT" \
 CONTROLLER="$MUTANT/game/enemies/enemy_controller.gd"
 STATE_MACHINE="$MUTANT/game/enemies/enemy_state_machine.gd"
 DEFINITION="$MUTANT/game/data/enemies/shambler.tres"
+SPELL_DEFINITION="$MUTANT/game/data/spells/spectral_bolt.tres"
+SPELL_PROJECTILE="$MUTANT/game/combat/spell_projectile.gd"
+PLAYER_ACTION_MACHINE="$MUTANT/game/player/action/player_action_machine.gd"
 
 "$GODOT" --headless --path "$MUTANT" --import >"$TMP_ROOT/import.log" 2>&1
 if grep -Eq 'SCRIPT ERROR|Parse Error|ERROR:' "$TMP_ROOT/import.log"; then
@@ -125,5 +128,47 @@ if old not in text:
 path.write_text(text.replace(old, "", 1))
 PY
 run_negative_gate "green recovery re-aim gate" "green RECOVERY must rapidly catch a full-speed circle-strafe target" "$TMP_ROOT/recovery-reaim.log"
+cp -- "$PROJECT/game/enemies/enemy_controller.gd" "$CONTROLLER"
+
+python3 - "$SPELL_DEFINITION" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "mana_cost = 25.0"
+new = "mana_cost = 0.0"
+if old not in text:
+    raise SystemExit("spell mana-cost mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "spectral-bolt mana cost gate" "Expected 25.0, got 0.0" "$TMP_ROOT/spell-cost.log"
+cp -- "$PROJECT/game/data/spells/spectral_bolt.tres" "$SPELL_DEFINITION"
+
+python3 - "$SPELL_PROJECTILE" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "const COLLISION_MASK := 5"
+new = "const COLLISION_MASK := 7"
+if old not in text:
+    raise SystemExit("projectile-mask mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "projectile caster-exclusion gate" "projectile mask must never include player layer" "$TMP_ROOT/projectile-mask.log"
+cp -- "$PROJECT/game/combat/spell_projectile.gd" "$SPELL_PROJECTILE"
+
+python3 - "$PLAYER_ACTION_MACHINE" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\tif phase != Phase.FREE:\n"
+new = "\tif phase != Phase.FREE and phase != Phase.DODGE:\n"
+if old not in text:
+    raise SystemExit("cast-commitment mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "cast-during-dodge gate" "cast must be blocked during DODGE commitment" "$TMP_ROOT/cast-dodge.log"
 
 printf 'NEGATIVE GATES: PASS; live source was never modified\n'

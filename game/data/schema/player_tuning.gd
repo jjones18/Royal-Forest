@@ -16,6 +16,9 @@ extends Resource
 @export_group("Resources")
 @export var max_hp: float = 100.0
 @export var max_stamina: float = 100.0
+@export var max_mana: float = 100.0
+@export var mana_recovery_delay: float = 2.0
+@export var mana_recovery_per_second: float = 2.5
 @export var attack_stamina_cost: float = 25.0
 @export var dodge_stamina_cost: float = 30.0
 @export var guard_drain_per_second: float = 10.0

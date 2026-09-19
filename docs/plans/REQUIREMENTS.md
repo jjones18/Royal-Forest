@@ -31,6 +31,8 @@ A row with mixed labels preserves the status of each clause explicitly. Numeric 
 
 Acceptance criteria are intentionally short and observable. Detailed execution and planned paths live in `docs/plans/REBUILD_PLAN.md`.
 
+Green pursuit and recovery re-aim rapidly (540°/s); orange windup permits only slow limited turning (45°/s); only the red active strike is direction-committed (0°/s).
+
 ### Product, movement, and input
 
 | ID | Status | Requirement | Milestone | Acceptance criteria | GDD source |
@@ -54,7 +56,7 @@ Acceptance criteria are intentionally short and observable. Detailed execution a
 | RF01-CMB-005 | PROPOSED | Dodge travels about 2.4 m over 0.34 s, grants about 0.20 s invulnerability, costs 30, and has about 0.75 s total recovery. | M1 | Frame-step tests verify distance, invulnerability, cost, and non-chainable recovery; tuning remains data-driven. | §6.2 |
 | RF01-CMB-006 | TARGET / PROPOSED | Guard requires an equipped shield (**TARGET**); proposed baseline is 80% reduction, 40% movement, drain plus impact cost, and telegraphed guard break. | M1 | Guard is unavailable without shield; equip enables it; tests cover reduction, movement, stamina drain, exhaustion break, and dodge independence. | §7.3 |
 | RF01-CMB-007 | TARGET | Combat feedback makes accepted/blocked actions and damage attribution readable without obscuring the next tell. | M1 | Human tester identifies the enemy tell and explains damage taken; hits combine synchronized visual, audio, and reaction cues. | §§7.1, 7.4, 17.4, 22.2–22.3 |
-| RF01-MAG-001 | TARGET / PROPOSED | Include one free-aim combat spell using slowly regenerating mana; proposed baseline is 100 mana, 25–45 cost, ~2 s delay, 2–3/s recovery. | M2 | Spell is equipped, useful, controller-aimable without lock-on, cost-limited, and persists; deterministic tests cover delay/reset/recovery. | §7.6 |
+| RF01-MAG-001 | TARGET / PROPOSED | Include one free-aim combat spell using slowly regenerating mana; M2a implements 100 mana, 25 cost, 2.0 s delay, and 2.5/s recovery as proposed values. | M2a complete; persistence/equipment in M2d | Spectral Bolt is camera-forward with no lock-on; deterministic tests cover spend rejection, cast/damage delay reset, recovery, cast phases, and projectile collisions. Persistence/equipment remain later milestone work. | §7.6 |
 | RF01-HP-001 | TARGET | Base HP 100, no passive health regeneration, no injury system, and no general resistance spreadsheet. | M1 | Damage persists until explicit healing/rest/respawn; excluded systems are absent. | §8.1 |
 | RF01-HP-002 | TARGET / PROPOSED | Vessel healing is slow, committed, damage-interruptible, refillable at living trees; proposed start is three percentage-heal charges. | M2 | Tests cover start, interruption, heal frame, charge spend, post-heal non-cancelability, refill, and max-HP scaling. | §8.2 |
 | RF01-EN-001 | TARGET | One complete ordinary enemy has detection/LOS, pursuit/navigation/leash, windup, active strike, recovery, reaction, and death states. | M1 | State tests reject damage outside active windows; gray-box obstacle, occlusion, and leash scenarios pass. | §§12.2, 12.4, 20.2, 20.5 |
@@ -152,7 +154,7 @@ These are not backlog invitations inside v0.1. Do not add schema fields, input a
 |---|---|---|
 | Hound-King form: spectral beast vs crowned keeper | Before final guardian sprite/audio commission in M2 | Use a mechanics-only blockout with stable `guardian`/`enemy_move` IDs; do not let presentation choice alter combat architecture. |
 | Hound-King exact move list and Crowned Hunt region-specific mechanic | Before M2 encounter lock | At most two phases and one region mechanic; every damaging move needs tell/active/recovery data. |
-| v0.1 spell identity and acquisition placement | Before M2 route content | Must be free-aim, mana-limited, useful, and not required to make Crowned Hunt completable if broader region order remains flexible. |
+| v0.1 spell acquisition placement | Before M2 route content | Spectral Bolt is the implemented free-aim M2a spell; choose an authored pickup location without making it required for Crowned Hunt completion if broader region order remains flexible. |
 | v0.1 Insight-visible hook | Before attribute UI acceptance | Must be observable content, not an invisible percentage; keep full threshold set deferred. |
 | Crowned Hunt release-step representation in the slice | Before polished route review | May be a clearly marked preview/state hook; it must not claim the finished narrative act is locked. |
 | Root-Crown art kit: dedicated or shared | Before final-art screenshot gate | Gray-box and neutral materials are safe; record the decision before commissioning environment production. |

@@ -4,6 +4,8 @@ extends Node3D
 const PLAYER_SCENE := preload("res://game/player/player_controller.tscn")
 const ENEMY_SCENE := preload("res://game/enemies/enemy_controller.tscn")
 const HUD_SCENE := preload("res://game/ui/hud/game_hud_responsive.tscn")
+const SPELL_PROJECTILE_SCENE := preload("res://game/combat/spell_projectile.tscn")
+const SPECTRAL_BOLT: SpellDefinition = preload("res://game/data/spells/spectral_bolt.tres")
 const TUNING: PlayerTuning = preload("res://game/data/tuning/player_default.tres")
 
 var player: PlayerController
@@ -20,6 +22,7 @@ func _ready() -> void:
 	player.position = Vector3(0, 0, 4.5)
 	add_child(player)
 	player.attack_requested.connect(perform_player_attack)
+	player.cast_requested.connect(spawn_spell_projectile)
 	player.restart_requested.connect(reset_encounter)
 	primary_enemy = spawn_enemy(Vector3(0, 0, 0.5), "Shambler")
 	hud = HUD_SCENE.instantiate()
@@ -34,6 +37,12 @@ func spawn_enemy(at: Vector3, enemy_name: String = "Shambler") -> EnemyControlle
 	enemy.configure_navigation_obstacles(navigation_obstacles)
 	add_child(enemy)
 	return enemy
+
+func spawn_spell_projectile(origin: Vector3, direction: Vector3) -> SpellProjectile:
+	var projectile: SpellProjectile = SPELL_PROJECTILE_SCENE.instantiate()
+	projectile.configure(SPECTRAL_BOLT, origin, direction, player)
+	add_child(projectile)
+	return projectile
 
 func perform_player_attack() -> int:
 	var hits := 0

@@ -4,7 +4,9 @@ A first-person dungeon crawler prototype inspired by FromSoftware's *King's Fiel
 (1994): slow deliberate first-person exploration, sprite enemies in 3D space,
 atmosphere over exposition.
 
-**Status:** M1 combat-feel checkpoint accepted for M2 systems work on 2026-09-18. The green-recovery turning fix remains queued for combined human review with M2; authored route production waits for the M2 state/persistence foundations.
+**Status:** M2a is complete: mana ownership, one free-aim Spectral Bolt, initial spell registry coverage, HUD/input integration, and focused mutation gates are implemented. M2b+ remain open, and authored M2e route production waits for the M2b–M2d state/persistence foundations.
+
+Green pursuit and recovery re-aim rapidly (540°/s); orange windup permits only slow limited turning (45°/s); only the red active strike is direction-committed (0°/s).
 
 ## The plan
 
@@ -14,7 +16,8 @@ We are building one GDD-traceable first playable before expanding to the full ga
 - [x] Visible gray-box sword/shield and combat feedback
 - [x] Fair committed enemy strikes and bounded LOS search behavior
 - [x] Human M1 verdict: proceed to M2 with bounded turning follow-up queued for combined review
-- [ ] Mana, one spell, healing vessel, checkpoints, persistence, attributes, inventory, and map foundation
+- [x] Mana owner and one free-aim Spectral Bolt (M2a): 100 max mana, 25 cost, 2.0 s delay, 2.5 mana/s; 30 damage, 16 m/s, 24 m range, 0.16 m radius
+- [ ] Healing vessel, checkpoints, persistence, attributes, inventory, and map foundation (M2b–M2d)
 - [ ] Authored Root-Crown → Crowned Hunt → Hound-King → first Crown Seal route
 - [ ] 20–30 minute v0.1 first-playable package
 
@@ -44,6 +47,6 @@ Godot 4.4 lives at `~/.local/opt/godot`.
 ~/.local/opt/godot --path /mnt/storage/Git/royal-forest
 ```
 
-Controls: **WASD** move · **mouse** look · **left mouse** attack · **Space** dodge · **right mouse (hold)** guard · **R** reset · **Esc** release cursor · **F9** start/stop a diagnostic recording · **F10** visibly mark the issue moment.
+Controls: **WASD** move · **mouse** look · **left mouse** attack · **Q** Spectral Bolt · **Space** dodge · **right mouse (hold)** guard · **R** reset · **Esc** release cursor · **F9** start/stop a diagnostic recording · **F10** visibly mark the issue moment. Controller casting uses the **right shoulder** button.
 
 Run the complete automated gate with `./tools/verify.sh`. See [`playtest/m1/README.md`](playtest/m1/README.md) for the current 2–5 minute human retest.
