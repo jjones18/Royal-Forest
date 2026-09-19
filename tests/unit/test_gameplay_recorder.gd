@@ -32,6 +32,8 @@ func test_recording_writes_synchronized_jsonl_events(assertions: Assertions, fix
 			sample_count += 1
 		saw_required_snapshot = saw_required_snapshot or (
 			payload.has("enemy_phase")
+			and payload.has("player_crouching")
+			and payload.has("player_eye_height")
 			and payload.has("enemy_los")
 			and payload.has("enemy_los_lost_elapsed")
 			and payload.has("enemy_search_elapsed")

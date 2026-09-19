@@ -68,6 +68,18 @@ func _ready() -> void:
 	playground.player.actions.reset()
 	playground.player.receive_enemy_damage(TUNING.max_hp * 2.0)
 	signatures["death"] = await _capture("m1-death.png")
+	playground.player.reset_player()
+	playground.hud.feedback_remaining = 0.0
+	playground.hud.feedback_label.visible = false
+	playground.player.global_position = Vector3(-3.8, 0.0, -5.2)
+	playground.player.rotation.y = PI
+	playground.primary_enemy.global_position = Vector3(-3.8, 0.0, -1.8)
+	playground.primary_enemy.reset_enemy()
+	playground.primary_enemy.global_position = Vector3(-3.8, 0.0, -1.8)
+	var crouch := InputCommand.new()
+	crouch.crouch_pressed = true
+	playground.player.simulate_command(crouch, 0.25)
+	signatures["crouched-behind-low-cover"] = await _capture("m2-crouched-behind-low-cover.png")
 	var capture_names := signatures.keys()
 	for left_index in range(capture_names.size()):
 		for right_index in range(left_index + 1, capture_names.size()):

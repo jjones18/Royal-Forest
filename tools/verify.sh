@@ -67,8 +67,9 @@ printf 'PASS: bounded main-scene boot (exit %d)\n' "$boot_status"
 
 printf '\n== real-framebuffer visual probe ==\n'
 GODOT="$GODOT" "$SCRIPT_DIR/run_visual_probe.sh" 2>&1 | tee "$LOG_DIR/visual.log"
-grep -Fq 'VISUAL PROBE: PASS (12 captures' "$LOG_DIR/visual.log"
-grep -Fq 'VISUAL CAPTURES: neutral, low-stamina, enemy-tell, enemy-active, attack-windup, attack-active, attack-recovery, hit-confirm, guarding, blocked, guard-break, death' "$LOG_DIR/visual.log"
+grep -Fxq "VISUAL PROBE: PASS (13 captures in $PROJECT/artifacts/visual)" "$LOG_DIR/visual.log"
+grep -Fxq 'VISUAL CAPTURE SET: m1-neutral.png,m1-low-stamina.png,m1-enemy-tell.png,m1-enemy-active.png,m1-attack-windup.png,m1-attack-active.png,m1-attack-recovery.png,m1-hit-confirm.png,m1-guarding.png,m1-blocked.png,m1-guard-break.png,m1-death.png,m2-crouched-behind-low-cover.png' "$LOG_DIR/visual.log"
+grep -Fxq 'VISUAL CAPTURES: neutral, low-stamina, enemy-tell, enemy-active, attack-windup, attack-active, attack-recovery, hit-confirm, guarding, blocked, guard-break, death, crouched-behind-low-cover' "$LOG_DIR/visual.log"
 
 printf '\n== whitespace check ==\n'
 git -C "$PROJECT" diff --check

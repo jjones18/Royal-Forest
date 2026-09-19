@@ -134,10 +134,8 @@ func _strike_reach() -> float:
 func has_line_of_sight_to_player() -> bool:
 	if player == null or not is_inside_tree():
 		return false
-	# Eye-to-upper-torso sight keeps waist-high cover from behaving like a full
-	# wall while the three-metre pillar still provides genuine concealment.
 	var origin := global_position + Vector3.UP * 1.35
-	var target := player.global_position + Vector3.UP * 1.4
+	var target := player.los_target_position()
 	var query := PhysicsRayQueryParameters3D.create(origin, target, 1)
 	query.exclude = [get_rid()]
 	return get_world_3d().direct_space_state.intersect_ray(query).is_empty()

@@ -26,6 +26,7 @@ func sample() -> InputCommand:
 	command.attack_pressed = Input.is_action_just_pressed("attack") and not _suppress_attack_once
 	command.cast_pressed = Input.is_action_just_pressed("cast")
 	command.heal_pressed = Input.is_action_just_pressed("heal")
+	command.crouch_pressed = Input.is_action_just_pressed("crouch")
 	_suppress_attack_once = false
 	command.dodge_pressed = Input.is_action_just_pressed("dodge")
 	command.guard_pressed = Input.is_action_just_pressed("guard")

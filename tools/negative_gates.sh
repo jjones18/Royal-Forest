@@ -38,6 +38,9 @@ SPELL_DEFINITION="$MUTANT/game/data/spells/spectral_bolt.tres"
 SPELL_PROJECTILE="$MUTANT/game/combat/spell_projectile.gd"
 PLAYER_ACTION_MACHINE="$MUTANT/game/player/action/player_action_machine.gd"
 HEALING_VESSEL="$MUTANT/game/player/healing_vessel.gd"
+PLAYER_CONTROLLER="$MUTANT/game/player/player_controller.gd"
+PLAYER_STANCE="$MUTANT/game/player/player_stance.gd"
+VISUAL_SET_CHECKER="$MUTANT/tools/check_visual_capture_set.py"
 
 "$GODOT" --headless --path "$MUTANT" --import >"$TMP_ROOT/import.log" 2>&1
 if grep -Eq 'SCRIPT ERROR|Parse Error|ERROR:' "$TMP_ROOT/import.log"; then
@@ -229,4 +232,78 @@ PY
 run_negative_gate "healing commitment gate" "M2B_HEAL_COMMITMENT_BLOCKED" "$TMP_ROOT/heal-commitment.log"
 cp -- "$PROJECT/game/player/action/player_action_machine.gd" "$PLAYER_ACTION_MACHINE"
 
-printf 'NEGATIVE GATES: PASS; live source was never modified\n'
+python3 - "$PLAYER_STANCE" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "const CROUCHED_EYE_HEIGHT := 0.95"
+new = "const CROUCHED_EYE_HEIGHT := 1.62"
+if old not in text:
+    raise SystemExit("crouched-eye mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "crouched LOS target gate" "M2B1_CROUCH_BREAKS_LOS" "$TMP_ROOT/crouch-los.log"
+cp -- "$PROJECT/game/player/player_stance.gd" "$PLAYER_STANCE"
+
+python3 - "$PLAYER_STANCE" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "const CROUCH_SPEED_MULTIPLIER := 0.40"
+new = "const CROUCH_SPEED_MULTIPLIER := 1.0"
+if old not in text:
+    raise SystemExit("crouch-speed mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "exact crouch speed gate" "M2B1_CROUCH_SPEED_EXACT" "$TMP_ROOT/crouch-speed.log"
+cp -- "$PROJECT/game/player/player_stance.gd" "$PLAYER_STANCE"
+
+python3 - "$PLAYER_CONTROLLER" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\treturn get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()"
+new = "\treturn true"
+if old not in text:
+    raise SystemExit("headroom-guard mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "standing headroom gate" "M2B1_STAND_REQUIRES_HEADROOM" "$TMP_ROOT/crouch-headroom.log"
+cp -- "$PROJECT/game/player/player_controller.gd" "$PLAYER_CONTROLLER"
+
+python3 - "$PLAYER_ACTION_MACHINE" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\t\t\t_buffered_move_direction = request_data.move_direction"
+new = "\t\t\t_buffered_move_direction = Vector2.ZERO"
+if old not in text:
+    raise SystemExit("buffered-dodge direction mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "buffered dodge direction gate" "M2B1_BUFFERED_DODGE_DIRECTION" "$TMP_ROOT/buffered-dodge-direction.log"
+cp -- "$PROJECT/game/player/action/player_action_machine.gd" "$PLAYER_ACTION_MACHINE"
+
+VISUAL_GATE_DIR="$TMP_ROOT/visual-set"
+mkdir -p "$VISUAL_GATE_DIR"
+printf 'expected' > "$VISUAL_GATE_DIR/expected.png"
+printf 'stray' > "$VISUAL_GATE_DIR/unexpected-extra.png"
+set +e
+python3 "$VISUAL_SET_CHECKER" "$VISUAL_GATE_DIR" expected.png >"$TMP_ROOT/visual-set.log" 2>&1
+visual_status=$?
+set -e
+if [[ $visual_status -eq 0 ]]; then
+	printf 'FAIL: exact visual capture set gate did not reject the intentional stray file\n' >&2
+	exit 1
+fi
+if ! grep -Fq 'M2B1_VISUAL_SET_EXACT' "$TMP_ROOT/visual-set.log"; then
+	printf 'FAIL: exact visual capture set gate failed for the wrong reason; see %s\n' "$TMP_ROOT/visual-set.log" >&2
+	exit 1
+fi
+printf 'PASS: exact visual capture set gate rejected the intentional stray file\n'
+
+printf 'NEGATIVE GATES: PASS (17 gates: 16 gameplay mutants + 1 visual manifest defect); live source was never modified\n'

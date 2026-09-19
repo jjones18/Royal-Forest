@@ -14,8 +14,12 @@ func _init(source_tuning: PlayerTuning = null) -> void:
 	stamina = tuning.max_stamina
 	mana = tuning.max_mana
 
+func can_afford_stamina(amount: float) -> bool:
+	return amount >= 0.0 and stamina + 0.00001 >= amount
+
+
 func spend_stamina(amount: float) -> bool:
-	if amount < 0.0 or stamina + 0.00001 < amount:
+	if not can_afford_stamina(amount):
 		return false
 	stamina = maxf(0.0, stamina - amount)
 	stamina_recovery_delay_remaining = tuning.stamina_recovery_delay

@@ -201,11 +201,12 @@ Proposed pattern:
 | Equip weapon/item | TARGET | Change combat or exploration capability |
 | Guard | TARGET | Requires a shield; consumes stamina while held and on impact |
 | Dodge / sidestep | TARGET | Universal committed evade with brief invulnerability and stamina cost |
+| Crouch | TARGET | Toggle stance to lower eye/collision height and hide behind smaller cover; concealment only, not a broad stealth system |
 | Heavy attack | OUT OF SCOPE initially | Add only if light-attack combat is already proven and a weapon needs it |
 | Cast magic | TARGET | Free-aim combat spells fueled by slowly regenerating mana |
 | Sprint | OUT OF SCOPE | No combat sprinting; authored scale is built around walking |
 | Jump | OUT OF SCOPE | No platforming or jump-gated navigation |
-| Crouch / stealth | OUT OF SCOPE | No stealth subsystem |
+| Broad stealth system | OUT OF SCOPE | Crouch provides stance-owned LOS concealment only; no meter, sound AI, sneak attack, or detection multiplier |
 
 ### 5.3 Controls — current prototype baseline
 
@@ -214,6 +215,7 @@ Proposed pattern:
 | Move | WASD | PROTOTYPE |
 | Look | Mouse | PROTOTYPE |
 | Attack | Left mouse | PROTOTYPE |
+| Crouch | C / D-pad Down | TARGET (M2b.1 implemented) |
 | Interact | E | PROTOTYPE |
 | Release cursor | Escape | PROTOTYPE |
 | Restart after death/win | R | PROTOTYPE |
@@ -238,6 +240,8 @@ Proposed pattern:
 - **LOCKED:** Walk speed is 3.2 m/s
 - **PROTOTYPE:** Acceleration is 10 m/s²
 - **PROTOTYPE:** Player collision body is approximately 1.8 m high and 0.8 m wide
+- **TARGET (M2b.1 implemented):** Toggle crouch lowers eye height from 1.62 m to 0.95 m and capsule height from 1.8 m to 1.10 m at a clamped 4.0 m/s; feet remain grounded, movement is 40%, and standing/dodging fails closed without headroom; an accepted dodge owns standing stance for its full commitment and ignores crouch toggles
+- **TARGET:** Crouching can break enemy LOS behind authored low cover, but adds no visibility meter, sound AI, sneak attacks, detection modifiers, stamina drain, or persistence
 - **TARGET:** Movement is slow enough that entering attack range is consequential
 - **TARGET:** Strafing supports spacing but should not trivialize all melee enemies
 - **PROPOSED:** 2.9 m/s strafe, 2.5 m/s backpedal, 10 m/s² acceleration, no sprint, no encumbrance, and limited but not locked turning during attacks
@@ -1036,6 +1040,8 @@ No additional region, enemy family, major system, ending, or content category sh
 | Date | Decision | Status | Rationale / evidence |
 |---|---|---|---|
 | 2026-09-18 | Use three vessel charges, 40% max-HP healing, and provisional 0.80/0.08/0.52-second phases; spend an accepted use immediately, so damage before the heal frame interrupts healing and loses the charge | TARGET / PROPOSED | Makes the drinking commitment and interruption cost explicit while retaining exact timings as playtest values |
+| 2026-09-18 | Accept the M2b healing economy for first-playable playtesting: the new healing additions work great, including 0.80/0.08/0.52 timing and loss of a charge when windup is interrupted | ACCEPTED FOR FIRST PLAYABLE / PROVISIONAL UNTIL M2 EXIT | Human playtest acceptance unblocks M2c while preserving the final M2 exit tuning review |
+| 2026-09-18 | Add crouch to v0.1 as a standalone stance/LOS mechanic using physical C and D-pad Down; retain broad stealth as out of scope | TARGET | Lets the player hide behind smaller authored cover without adding a stealth subsystem |
 | 2026-08-23 | Walk speed is 3.2 m/s | LOCKED | Approved after movement prototype review |
 | 2026-08-23 | Current mouse sensitivity and 70° FOV | LOCKED | Approved after movement prototype review |
 | 2026-08-23 | Use sprite enemies in a 3D world | LOCKED | Core visual/design DNA |

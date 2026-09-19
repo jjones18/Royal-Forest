@@ -173,6 +173,41 @@ func test_low_cover_does_not_block_eye_level_detection(assertions: Assertions, f
 	return true
 
 
+func test_real_low_cover_crouch_hide_and_stand_reveal_reacquisition(assertions: Assertions, fixture: RefCounted) -> bool:
+	var playground: CombatPlayground = PLAYGROUND.instantiate()
+	fixture.add_node(playground)
+	await fixture.physics_frames(2)
+	var player := playground.player
+	var enemy := playground.primary_enemy
+	player.set_physics_process(false)
+	enemy.set_physics_process(false)
+	enemy.global_position = Vector3(-3.8, 0.0, -1.8)
+	player.global_position = Vector3(-3.8, 0.0, -5.2)
+	assertions.is_true(PlayerStance.STANDING_EYE_HEIGHT > 1.2 + 0.2, "standing eye must clear LowBlock with margin")
+	assertions.is_true(PlayerStance.CROUCHED_EYE_HEIGHT < 1.2 - 0.2, "crouched eye must sit below LowBlock with margin")
+	assertions.is_true(enemy.has_line_of_sight_to_player(), "standing setup must be visible")
+	enemy._physics_process(1.0 / 60.0)
+	assertions.equal(enemy.state_machine.phase, EnemyStateMachine.Phase.PURSUIT, "standing player must engage")
+	var crouch := InputCommand.new()
+	crouch.crouch_pressed = true
+	player.simulate_command(crouch, 0.25)
+	assertions.is_false(enemy.has_line_of_sight_to_player(), "M2B1_CROUCH_BREAKS_LOS")
+	var entered_search := false
+	for _step in range(ceili((ENEMY.line_of_sight_grace_seconds + 0.25) * 60.0)):
+		enemy._physics_process(1.0 / 60.0)
+		if enemy.state_machine.phase == EnemyStateMachine.Phase.SEARCH:
+			entered_search = true
+			break
+	assertions.is_true(entered_search, "continuous crouch concealment must enter SEARCH")
+	var stand := InputCommand.new()
+	stand.crouch_pressed = true
+	player.simulate_command(stand, 0.25)
+	assertions.is_true(enemy.has_line_of_sight_to_player(), "standing behind LowBlock must reveal player")
+	enemy._physics_process(1.0 / 60.0)
+	assertions.equal(enemy.state_machine.phase, EnemyStateMachine.Phase.PURSUIT, "SEARCH must reacquire standing player on next tick")
+	return true
+
+
 func test_recorded_same_direction_search_route_does_not_stall_at_pillar_corner(assertions: Assertions, fixture: RefCounted) -> bool:
 	var playground: CombatPlayground = PLAYGROUND.instantiate()
 	fixture.add_node(playground)

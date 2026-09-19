@@ -16,7 +16,9 @@ var attack_hit_available := false
 var cast_release_available := false
 var heal_tick_available := false
 var dodge_direction := Vector2.ZERO
+var dodge_commit_guard: Callable
 var _buffered: PlayerActionRequest.Kind = PlayerActionRequest.Kind.NONE
+var _buffered_move_direction := Vector2.ZERO
 
 func _init(source_stats: PlayerStats, source_tuning: PlayerTuning = null, source_spell: SpellDefinition = null, source_vessel: HealingVessel = null) -> void:
 	stats = source_stats
@@ -35,6 +37,7 @@ func request(request_data: PlayerActionRequest) -> bool:
 	if phase != Phase.FREE:
 		if phase in [Phase.ATTACK_RECOVERY, Phase.CAST_RECOVERY, Phase.HEAL_RECOVERY, Phase.DODGE] and _remaining() <= 0.15 and request_data.kind in [PlayerActionRequest.Kind.ATTACK, PlayerActionRequest.Kind.DODGE, PlayerActionRequest.Kind.CAST, PlayerActionRequest.Kind.HEAL] and _buffered == PlayerActionRequest.Kind.NONE:
 			_buffered = request_data.kind
+			_buffered_move_direction = request_data.move_direction
 			return _accept()
 		return _block("committed")
 	match request_data.kind:
@@ -53,6 +56,8 @@ func request(request_data: PlayerActionRequest) -> bool:
 			heal_tick_available = false
 			_enter(Phase.HEAL_WINDUP)
 		PlayerActionRequest.Kind.DODGE:
+			if not stats.can_afford_stamina(tuning.dodge_stamina_cost): return _block("insufficient stamina")
+			if dodge_commit_guard.is_valid() and not bool(dodge_commit_guard.call()): return _block("headroom blocked")
 			if not stats.spend_stamina(tuning.dodge_stamina_cost): return _block("insufficient stamina")
 			dodge_direction = request_data.move_direction.normalized() if request_data.move_direction.length() > 0.0 else Vector2(0.0, -1.0)
 			_enter(Phase.DODGE)
@@ -156,6 +161,7 @@ func receive_damage(amount: float) -> float:
 func reset() -> void:
 	stats.reset()
 	_buffered = PlayerActionRequest.Kind.NONE
+	_buffered_move_direction = Vector2.ZERO
 	attack_hit_available = false
 	cast_release_available = false
 	heal_tick_available = false
@@ -165,8 +171,10 @@ func _consume_buffer() -> void:
 	if _buffered == PlayerActionRequest.Kind.NONE:
 		return
 	var next := _buffered
+	var next_move_direction := _buffered_move_direction
 	_buffered = PlayerActionRequest.Kind.NONE
-	request(PlayerActionRequest.new(next, dodge_direction))
+	_buffered_move_direction = Vector2.ZERO
+	request(PlayerActionRequest.new(next, next_move_direction))
 
 func _duration() -> float:
 	match phase:

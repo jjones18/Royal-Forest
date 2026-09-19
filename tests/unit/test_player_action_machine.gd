@@ -21,10 +21,18 @@ func test_attack_boundaries_and_commitment(assertions: Assertions, _fixture: Ref
 	return true
 
 func test_insufficient_stamina_reports_reason(assertions: Assertions, _fixture: RefCounted) -> bool:
-	var machine := _machine()
-	machine.stats.stamina = TUNING.dodge_stamina_cost - 0.01
-	assertions.is_false(machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.DODGE)))
-	assertions.equal(machine.blocked_reason, "insufficient stamina")
+	var affordable := _machine()
+	affordable.stats.stamina = TUNING.dodge_stamina_cost - 0.000005
+	assertions.is_true(affordable.request(PlayerActionRequest.new(PlayerActionRequest.Kind.DODGE)), "shared epsilon boundary must allow dodge commitment")
+	assertions.equal(affordable.phase, PlayerActionMachine.Phase.DODGE)
+	assertions.equal(affordable.stats.stamina, 0.0)
+
+	var insufficient := _machine()
+	insufficient.stats.stamina = TUNING.dodge_stamina_cost - 0.01
+	var stamina_before := insufficient.stats.stamina
+	assertions.is_false(insufficient.request(PlayerActionRequest.new(PlayerActionRequest.Kind.DODGE)))
+	assertions.equal(insufficient.blocked_reason, "insufficient stamina")
+	assertions.equal(insufficient.stats.stamina, stamina_before, "rejected dodge must not spend stamina")
 	return true
 
 func test_dodge_iframe_recovery_and_non_chain(assertions: Assertions, _fixture: RefCounted) -> bool:
@@ -76,6 +84,30 @@ func test_buffer_near_recovery_runs_after_commitment(assertions: Assertions, _fi
 	assertions.equal(machine.phase, PlayerActionMachine.Phase.ATTACK_WINDUP)
 	assertions.equal(machine.stats.stamina, 50.0)
 	return true
+
+func test_first_buffered_dodge_preserves_requested_direction(assertions: Assertions, _fixture: RefCounted) -> bool:
+	var machine := _machine()
+	machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.ATTACK))
+	var attack_total := TUNING.attack_windup_seconds + TUNING.attack_active_seconds + TUNING.attack_recovery_seconds
+	machine.advance(attack_total - 0.1)
+	assertions.is_true(machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.DODGE, Vector2.RIGHT)))
+	machine.advance(0.1)
+	assertions.equal(machine.phase, PlayerActionMachine.Phase.DODGE)
+	assertions.is_true(machine.dodge_direction.is_equal_approx(Vector2.RIGHT), "M2B1_BUFFERED_DODGE_DIRECTION: first buffered dodge must retain requested direction")
+	return true
+
+
+func test_buffered_dodge_replaces_stale_previous_direction(assertions: Assertions, _fixture: RefCounted) -> bool:
+	var machine := _machine()
+	machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.DODGE, Vector2.LEFT))
+	machine.advance(TUNING.dodge_total_recovery_seconds - 0.1)
+	assertions.equal(machine.phase, PlayerActionMachine.Phase.DODGE)
+	assertions.is_true(machine.request(PlayerActionRequest.new(PlayerActionRequest.Kind.DODGE, Vector2.RIGHT)))
+	machine.advance(0.1)
+	assertions.equal(machine.phase, PlayerActionMachine.Phase.DODGE)
+	assertions.is_true(machine.dodge_direction.is_equal_approx(Vector2.RIGHT), "M2B1_BUFFERED_DODGE_DIRECTION: buffered dodge must replace stale prior direction")
+	return true
+
 
 func test_large_delta_walks_attack_phases_deterministically(assertions: Assertions, _fixture: RefCounted) -> bool:
 	var machine := _machine()

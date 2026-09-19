@@ -163,6 +163,8 @@ func telemetry_snapshot() -> Dictionary:
 		"player_yaw_degrees": rad_to_deg(player.global_rotation.y),
 		"player_hp": player.stats.hp,
 		"player_stamina": player.stats.stamina,
+		"player_crouching": player.stance.crouching,
+		"player_eye_height": player.stance.current_eye_height,
 		"player_phase": _phase_name(PlayerActionMachine.Phase.keys(), player.actions.phase),
 		"enemy_position": _vector3_array(enemy.global_position),
 		"enemy_yaw_degrees": rad_to_deg(enemy.global_rotation.y),

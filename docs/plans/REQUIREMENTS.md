@@ -42,6 +42,7 @@ Green pursuit and recovery re-aim rapidly (540°/s); orange windup permits only 
 | RF01-MOVE-001 | LOCKED | Default forward walk is **3.2 m/s**, default FOV is **70°**, and default mouse sensitivity is **0.0022**. | M1 | Centralized defaults are runtime-observable and exact; tests reject accidental drift. | §§6.1–6.2 |
 | RF01-MOVE-002 | PROPOSED | Default strafe 2.9 m/s, backpedal 2.5 m/s, acceleration 10 m/s²; no encumbrance. | M1 | Values are data-driven; stopping is predictable and circle-strafing does not trivialize the test enemy. | §6.2 |
 | RF01-MOVE-003 | TARGET | Grounded camera with reducible/disableable motion and collision that does not snag ordinary seams. | M1 | Human test accepts scale, stopping, camera comfort, and seam traversal; head-bob can be disabled. | §§6.1–6.3, 18.1–18.2 |
+| RF01-MOVE-004 | TARGET | v0.1 includes toggle crouch as a stance/LOS mechanic, not a broad stealth system: 1.62/0.95 m eye heights, 1.8/1.10 m capsule heights, 4.0 m/s deterministic transition, and 40% movement. | M2b.1 complete | Physical C and D-pad Down toggle crouch; camera/capsule keep feet grounded; low cover hides only the crouched LOS target; standing and dodge fail closed without headroom; attack/cast/heal/guard remain available; no stamina cost or persistence. | §§5.2–5.3, 6.2–6.3 |
 | RF01-IN-001 | TARGET | Abstract every gameplay/menu action for keyboard/mouse and controller; show device-appropriate prompts. | M2 | The full route and menus are completable with either input class; active-device prompts update and no gameplay code reads hardware events directly. | §§5.3, 18.1 |
 | RF01-IN-002 | TARGET | Context interaction handles checkpoints, pickups, doors, readables, and route mechanisms. | M2 | One action selects the intended nearby target and gives distinct success, missing-requirement, and unavailable feedback. | §§5.2, 13.1, 17.4 |
 
@@ -119,7 +120,7 @@ Persistent identity is authored data, never a node name, index, display label, o
 
 These are not backlog invitations inside v0.1. Do not add schema fields, input actions, UI, content dependencies, or speculative abstractions for them unless the controller explicitly revises scope.
 
-- Sprint, jump, crouch/stealth, climbing, swimming, encumbrance, armor inventory.
+- Sprint, jump, climbing, swimming, encumbrance, armor inventory, and broad stealth systems beyond the scoped crouch LOS stance.
 - Heavy attacks (unless explicitly approved after the M1 playtest), perfect parries, lock-on, backstabs, headshots, critical-hit RNG, broad elemental/resistance matrices, enemy-on-enemy damage.
 - Conventional ranged weapons/firearms and a separate ranged progression tree.
 - Crafting, durability, currency, vendors, rarity tiers, random rolls/loot, duplicate equipment, farmable upgrade materials, weapon upgrade trees.

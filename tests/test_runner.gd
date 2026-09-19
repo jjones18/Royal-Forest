@@ -13,6 +13,7 @@ const SUITES: Array[Script] = [
 	preload("res://tests/unit/test_spell_definition.gd"),
 	preload("res://tests/unit/test_content_registry.gd"),
 	preload("res://tests/unit/test_player_action_machine.gd"),
+	preload("res://tests/unit/test_player_stance.gd"),
 	preload("res://tests/unit/test_spell_projectile.gd"),
 	preload("res://tests/unit/test_enemy_state_machine.gd"),
 	preload("res://tests/unit/test_enemy_definition.gd"),
