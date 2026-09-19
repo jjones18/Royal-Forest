@@ -353,7 +353,9 @@ Base mana is 100. Combat spells cost 25–45 mana. Regeneration begins about 2 s
 **PROPOSED defaults:**
 
 - Begin with three uses; permit one or two authored capacity upgrades.
-- Restore a percentage of maximum health so Vitality does not devalue healing.
+- Restore 40% of maximum health so Vitality does not devalue healing.
+- Use a provisional 0.80-second windup, 0.08-second active healing window, and 0.52-second recovery (1.40 seconds total).
+- Spend the charge when the committed action starts. Damage during windup cancels the pending heal and the charge remains lost; once the healing window begins, the applied heal cannot be canceled.
 - Refill all uses when resting at a living tree; resting also resets ordinary enemies.
 - The vessel does not regenerate between trees and is not replenished by routine enemy drops.
 - Rare single-use restorative items may exist, but they must not become the expected healing economy.
@@ -1033,6 +1035,7 @@ No additional region, enemy family, major system, ending, or content category sh
 
 | Date | Decision | Status | Rationale / evidence |
 |---|---|---|---|
+| 2026-09-18 | Use three vessel charges, 40% max-HP healing, and provisional 0.80/0.08/0.52-second phases; spend an accepted use immediately, so damage before the heal frame interrupts healing and loses the charge | TARGET / PROPOSED | Makes the drinking commitment and interruption cost explicit while retaining exact timings as playtest values |
 | 2026-08-23 | Walk speed is 3.2 m/s | LOCKED | Approved after movement prototype review |
 | 2026-08-23 | Current mouse sensitivity and 70° FOV | LOCKED | Approved after movement prototype review |
 | 2026-08-23 | Use sprite enemies in a 3D world | LOCKED | Core visual/design DNA |

@@ -1,11 +1,12 @@
 class_name PlayerActionMachine
 extends RefCounted
 
-enum Phase { FREE, ATTACK_WINDUP, ATTACK_ACTIVE, ATTACK_RECOVERY, CAST_WINDUP, CAST_ACTIVE, CAST_RECOVERY, DODGE, GUARD, GUARD_BROKEN, HURT, DEAD }
+enum Phase { FREE, ATTACK_WINDUP, ATTACK_ACTIVE, ATTACK_RECOVERY, CAST_WINDUP, CAST_ACTIVE, CAST_RECOVERY, HEAL_WINDUP, HEAL_ACTIVE, HEAL_RECOVERY, DODGE, GUARD, GUARD_BROKEN, HURT, DEAD }
 
 var tuning: PlayerTuning
 var stats: PlayerStats
 var spell: SpellDefinition
+var vessel: HealingVessel
 var phase: Phase = Phase.FREE
 var elapsed := 0.0
 var has_shield := true
@@ -13,13 +14,15 @@ var accepted := false
 var blocked_reason := ""
 var attack_hit_available := false
 var cast_release_available := false
+var heal_tick_available := false
 var dodge_direction := Vector2.ZERO
 var _buffered: PlayerActionRequest.Kind = PlayerActionRequest.Kind.NONE
 
-func _init(source_stats: PlayerStats, source_tuning: PlayerTuning = null, source_spell: SpellDefinition = null) -> void:
+func _init(source_stats: PlayerStats, source_tuning: PlayerTuning = null, source_spell: SpellDefinition = null, source_vessel: HealingVessel = null) -> void:
 	stats = source_stats
 	tuning = source_tuning if source_tuning != null else source_stats.tuning
 	spell = source_spell if source_spell != null else load("res://game/data/spells/spectral_bolt.tres")
+	vessel = source_vessel if source_vessel != null else HealingVessel.new()
 
 func request(request_data: PlayerActionRequest) -> bool:
 	accepted = false
@@ -30,7 +33,7 @@ func request(request_data: PlayerActionRequest) -> bool:
 		_enter(Phase.FREE)
 		return _accept()
 	if phase != Phase.FREE:
-		if phase in [Phase.ATTACK_RECOVERY, Phase.CAST_RECOVERY, Phase.DODGE] and _remaining() <= 0.15 and request_data.kind in [PlayerActionRequest.Kind.ATTACK, PlayerActionRequest.Kind.DODGE, PlayerActionRequest.Kind.CAST] and _buffered == PlayerActionRequest.Kind.NONE:
+		if phase in [Phase.ATTACK_RECOVERY, Phase.CAST_RECOVERY, Phase.HEAL_RECOVERY, Phase.DODGE] and _remaining() <= 0.15 and request_data.kind in [PlayerActionRequest.Kind.ATTACK, PlayerActionRequest.Kind.DODGE, PlayerActionRequest.Kind.CAST, PlayerActionRequest.Kind.HEAL] and _buffered == PlayerActionRequest.Kind.NONE:
 			_buffered = request_data.kind
 			return _accept()
 		return _block("committed")
@@ -44,6 +47,11 @@ func request(request_data: PlayerActionRequest) -> bool:
 			if not stats.spend_mana(spell.mana_cost): return _block("insufficient mana")
 			cast_release_available = false
 			_enter(Phase.CAST_WINDUP)
+		PlayerActionRequest.Kind.HEAL:
+			if stats.hp + 0.00001 >= stats.tuning.max_hp: return _block("full health")
+			if not vessel.spend_charge(): return _block("empty vessel")
+			heal_tick_available = false
+			_enter(Phase.HEAL_WINDUP)
 		PlayerActionRequest.Kind.DODGE:
 			if not stats.spend_stamina(tuning.dodge_stamina_cost): return _block("insufficient stamina")
 			dodge_direction = request_data.move_direction.normalized() if request_data.move_direction.length() > 0.0 else Vector2(0.0, -1.0)
@@ -84,7 +92,12 @@ func advance(delta: float) -> void:
 					cast_release_available = true
 				Phase.CAST_ACTIVE:
 					_enter(Phase.CAST_RECOVERY)
-				Phase.ATTACK_RECOVERY, Phase.CAST_RECOVERY, Phase.DODGE, Phase.GUARD_BROKEN, Phase.HURT:
+				Phase.HEAL_WINDUP:
+					_enter(Phase.HEAL_ACTIVE)
+					heal_tick_available = true
+				Phase.HEAL_ACTIVE:
+					_enter(Phase.HEAL_RECOVERY)
+				Phase.ATTACK_RECOVERY, Phase.CAST_RECOVERY, Phase.HEAL_RECOVERY, Phase.DODGE, Phase.GUARD_BROKEN, Phase.HURT:
 					_enter(Phase.FREE)
 					_consume_buffer()
 				_:
@@ -100,6 +113,12 @@ func consume_cast_release() -> bool:
 	if not cast_release_available:
 		return false
 	cast_release_available = false
+	return true
+
+func consume_heal_tick() -> bool:
+	if not heal_tick_available:
+		return false
+	heal_tick_available = false
 	return true
 
 func normalized_phase_progress() -> float:
@@ -139,6 +158,7 @@ func reset() -> void:
 	_buffered = PlayerActionRequest.Kind.NONE
 	attack_hit_available = false
 	cast_release_available = false
+	heal_tick_available = false
 	_enter(Phase.FREE)
 
 func _consume_buffer() -> void:
@@ -156,6 +176,9 @@ func _duration() -> float:
 		Phase.CAST_WINDUP: return spell.cast_windup_seconds
 		Phase.CAST_ACTIVE: return spell.cast_active_seconds
 		Phase.CAST_RECOVERY: return spell.cast_recovery_seconds
+		Phase.HEAL_WINDUP: return HealingVessel.HEAL_WINDUP
+		Phase.HEAL_ACTIVE: return HealingVessel.HEAL_ACTIVE
+		Phase.HEAL_RECOVERY: return HealingVessel.HEAL_RECOVERY
 		Phase.DODGE: return tuning.dodge_total_recovery_seconds
 		Phase.GUARD_BROKEN: return tuning.guard_break_seconds
 		Phase.HURT: return tuning.player_hurt_seconds
@@ -165,11 +188,14 @@ func _remaining() -> float:
 	return maxf(0.0, _duration() - elapsed)
 
 func _enter(next: Phase) -> void:
+	var previous := phase
 	phase = next
 	elapsed = 0.0
 	if next in [Phase.HURT, Phase.GUARD_BROKEN, Phase.DEAD]:
 		attack_hit_available = false
 		cast_release_available = false
+		if previous == Phase.HEAL_WINDUP:
+			heal_tick_available = false
 
 func _accept() -> bool:
 	accepted = true

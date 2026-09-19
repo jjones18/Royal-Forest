@@ -1,7 +1,7 @@
 class_name PlayerActionRequest
 extends RefCounted
 
-enum Kind { NONE, ATTACK, CAST, DODGE, GUARD_START, GUARD_END }
+enum Kind { NONE, ATTACK, CAST, HEAL, DODGE, GUARD_START, GUARD_END }
 
 var kind: Kind = Kind.NONE
 var move_direction: Vector2 = Vector2.ZERO

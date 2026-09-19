@@ -7,6 +7,7 @@ var player: PlayerController
 var hp_bar: ProgressBar
 var stamina_bar: ProgressBar
 var mana_bar: ProgressBar
+var vessel_label: Label
 var state_label: Label
 var guard_label: Label
 var feedback_label: Label
@@ -89,6 +90,7 @@ func _process(delta: float) -> void:
 	hp_bar.value = player.stats.hp
 	stamina_bar.value = player.stats.stamina
 	mana_bar.value = player.stats.mana
+	vessel_label.text = "VESSEL %d / %d" % [player.vessel.charges, player.vessel.max_charges]
 	state_label.text = "ACTION: %s%s" % [PlayerActionMachine.Phase.keys()[player.actions.phase], (" — " + player.actions.blocked_reason) if not player.actions.blocked_reason.is_empty() else ""]
 	guard_label.text = "SHIELD RAISED  •  %.0f%% BLOCK  •  CHIP DAMAGE" % (TUNING.guard_damage_reduction * 100.0) if player.actions.phase == PlayerActionMachine.Phase.GUARD else ""
 	if feedback_remaining > 0.0:
@@ -104,12 +106,13 @@ func _on_combat_feedback(kind: StringName, text: String) -> void:
 		&"hit": feedback_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.35))
 		&"blocked": feedback_label.add_theme_color_override("font_color", Color(0.45, 0.85, 1.0))
 		&"guard_broken": feedback_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.1))
+		&"healed": feedback_label.add_theme_color_override("font_color", Color(0.4, 1.0, 0.55))
 		_: feedback_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.15))
 
 
 func _build_status_panel() -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(330, 148)
+	panel.custom_minimum_size = Vector2(330, 170)
 	var rows := VBoxContainer.new()
 	rows.add_child(_label("ROYAL FOREST — M2 FIRST PLAYABLE"))
 	var hp := _resource_row("HP", Color(0.72, 0.12, 0.1))
@@ -121,14 +124,16 @@ func _build_status_panel() -> PanelContainer:
 	var mana := _resource_row("MANA", Color(0.2, 0.45, 0.9))
 	mana_bar = mana["bar"]
 	rows.add_child(mana["row"])
+	vessel_label = _label("VESSEL 3 / 3")
+	rows.add_child(vessel_label)
 	panel.add_child(rows)
 	return panel
 
 
 func _build_instruction_panel() -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(410, 122)
-	var label := _label("WASD / Left Stick: move  •  Mouse / Right Stick: look\nLMB / RT: attack  •  Q / Right Shoulder: Spectral Bolt\nSpace / A: dodge  •  RMB / LT: guard  •  R / Y: reset")
+	panel.custom_minimum_size = Vector2(410, 144)
+	var label := _label("WASD / Left Stick: move  •  Mouse / Right Stick: look\nLMB / RT: attack  •  Q / Right Shoulder: Spectral Bolt\nF / D-pad Up: healing vessel  •  Space / A: dodge\nRMB / LT: guard  •  R / Y: reset")
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_color_override("font_color", Color(0.95, 0.9, 0.7))
 	panel.add_child(label)

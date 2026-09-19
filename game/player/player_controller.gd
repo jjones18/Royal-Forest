@@ -8,7 +8,8 @@ signal combat_feedback(kind: StringName, text: String)
 
 const TUNING: PlayerTuning = preload("res://game/data/tuning/player_default.tres")
 var stats := PlayerStats.new(TUNING)
-var actions := PlayerActionMachine.new(stats, TUNING)
+var vessel := HealingVessel.new()
+var actions := PlayerActionMachine.new(stats, TUNING, null, vessel)
 var input_router: InputRouter
 var camera: Camera3D
 var viewmodel: PlayerViewmodel
@@ -53,6 +54,9 @@ func simulate_command(command: InputCommand, delta: float) -> void:
 	if actions.consume_cast_release():
 		var cast_direction := (-camera.global_transform.basis.z).normalized()
 		cast_requested.emit(camera.global_position, cast_direction)
+	if actions.consume_heal_tick():
+		var restored := stats.heal(vessel.heal_amount(stats.tuning.max_hp))
+		combat_feedback.emit(&"healed", "HEALED  +%.0f" % restored)
 	if actions.phase == PlayerActionMachine.Phase.DODGE:
 		var local_dodge := Vector3(actions.dodge_direction.x, 0.0, actions.dodge_direction.y)
 		var world_dodge := global_transform.basis * local_dodge
@@ -73,6 +77,8 @@ func apply_command(command: InputCommand, delta: float) -> void:
 		actions.request(PlayerActionRequest.new(PlayerActionRequest.Kind.ATTACK))
 	if command.cast_pressed:
 		actions.request(PlayerActionRequest.new(PlayerActionRequest.Kind.CAST))
+	if command.heal_pressed:
+		actions.request(PlayerActionRequest.new(PlayerActionRequest.Kind.HEAL))
 	if command.dodge_pressed:
 		actions.request(PlayerActionRequest.new(PlayerActionRequest.Kind.DODGE, command.move))
 	if command.guard_released:
@@ -113,5 +119,6 @@ func confirm_player_hit(hit_count: int, damage_each: float) -> void:
 
 func reset_player() -> void:
 	actions.reset()
+	vessel.refill()
 	transform = spawn_transform
 	velocity = Vector3.ZERO

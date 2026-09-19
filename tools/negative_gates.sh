@@ -37,6 +37,7 @@ DEFINITION="$MUTANT/game/data/enemies/shambler.tres"
 SPELL_DEFINITION="$MUTANT/game/data/spells/spectral_bolt.tres"
 SPELL_PROJECTILE="$MUTANT/game/combat/spell_projectile.gd"
 PLAYER_ACTION_MACHINE="$MUTANT/game/player/action/player_action_machine.gd"
+HEALING_VESSEL="$MUTANT/game/player/healing_vessel.gd"
 
 "$GODOT" --headless --path "$MUTANT" --import >"$TMP_ROOT/import.log" 2>&1
 if grep -Eq 'SCRIPT ERROR|Parse Error|ERROR:' "$TMP_ROOT/import.log"; then
@@ -170,5 +171,62 @@ if old not in text:
 path.write_text(text.replace(old, new, 1))
 PY
 run_negative_gate "cast-during-dodge gate" "cast must be blocked during DODGE commitment" "$TMP_ROOT/cast-dodge.log"
+cp -- "$PROJECT/game/player/action/player_action_machine.gd" "$PLAYER_ACTION_MACHINE"
+
+python3 - "$HEALING_VESSEL" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "const MAX_CHARGES := 3"
+new = "const MAX_CHARGES := 0"
+if old not in text:
+    raise SystemExit("vessel max-charge mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "healing-vessel max-charge gate" "M2B_MAX_CHARGES_EXACT" "$TMP_ROOT/heal-max-charges.log"
+cp -- "$PROJECT/game/player/healing_vessel.gd" "$HEALING_VESSEL"
+
+python3 - "$PLAYER_ACTION_MACHINE" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\t\t\theal_tick_available = false\n\t\t\t_enter(Phase.HEAL_WINDUP)"
+new = "\t\t\theal_tick_available = true\n\t\t\t_enter(Phase.HEAL_WINDUP)"
+if old not in text:
+    raise SystemExit("early-heal mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "exact healing-frame gate" "M2B_EXACT_HEAL_FRAME" "$TMP_ROOT/heal-frame.log"
+cp -- "$PROJECT/game/player/action/player_action_machine.gd" "$PLAYER_ACTION_MACHINE"
+
+python3 - "$PLAYER_ACTION_MACHINE" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\telif phase != Phase.GUARD and not guard_broken: _enter(Phase.HURT)"
+new = "\telif phase not in [Phase.GUARD, Phase.HEAL_WINDUP] and not guard_broken: _enter(Phase.HURT)"
+if old not in text:
+    raise SystemExit("heal-interruption mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "healing interruption gate" "M2B_INTERRUPTION_ENTERS_HURT" "$TMP_ROOT/heal-interruption.log"
+cp -- "$PROJECT/game/player/action/player_action_machine.gd" "$PLAYER_ACTION_MACHINE"
+
+python3 - "$PLAYER_ACTION_MACHINE" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\tif phase != Phase.FREE:\n"
+new = "\tif phase != Phase.FREE and request_data.kind != PlayerActionRequest.Kind.HEAL:\n"
+if old not in text:
+    raise SystemExit("heal-commitment mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "healing commitment gate" "M2B_HEAL_COMMITMENT_BLOCKED" "$TMP_ROOT/heal-commitment.log"
+cp -- "$PROJECT/game/player/action/player_action_machine.gd" "$PLAYER_ACTION_MACHINE"
 
 printf 'NEGATIVE GATES: PASS; live source was never modified\n'

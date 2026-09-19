@@ -24,6 +24,25 @@ func test_layout_stays_inside_1280x720_and_960x540(assertions: Assertions, fixtu
 			all_text += (label as Label).text + "\n"
 		assertions.is_true(all_text.contains("M2 FIRST PLAYABLE"), "HUD header must identify M2 first playable")
 		assertions.is_true(all_text.contains("Q / Right Shoulder: Spectral Bolt"), "HUD instructions must show keyboard/controller cast parity")
+		assertions.is_true(all_text.contains("F / D-pad Up: healing vessel"), "HUD instructions must show keyboard/controller heal parity")
+		assertions.is_true(all_text.contains("VESSEL 3 / 3"), "HUD must show authored vessel charges")
 		viewport.queue_free()
 		await fixture.process_frames(1)
+	return true
+
+
+func test_vessel_charge_text_updates_live(assertions: Assertions, fixture: RefCounted) -> bool:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(960, 540)
+	fixture.add_node(viewport)
+	var player := PlayerController.new()
+	viewport.add_child(player)
+	var hud: ResponsiveGameHud = HUD.instantiate()
+	hud.player = player
+	viewport.add_child(hud)
+	await fixture.process_frames(2)
+	assertions.equal(hud.vessel_label.text, "VESSEL 3 / 3")
+	player.vessel.spend_charge()
+	await fixture.process_frames(1)
+	assertions.equal(hud.vessel_label.text, "VESSEL 2 / 3", "vessel charge HUD must update live")
 	return true
