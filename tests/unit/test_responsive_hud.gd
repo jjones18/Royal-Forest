@@ -1,0 +1,23 @@
+extends RefCounted
+
+const Assertions = preload("res://tests/support/assertions.gd")
+const HUD := preload("res://game/ui/hud/game_hud_responsive.tscn")
+
+func test_layout_stays_inside_1280x720_and_960x540(assertions: Assertions, fixture: RefCounted) -> bool:
+	for viewport_size in [Vector2i(1280, 720), Vector2i(960, 540)]:
+		var viewport := SubViewport.new()
+		viewport.size = viewport_size
+		fixture.add_node(viewport)
+		var hud: ResponsiveGameHud = HUD.instantiate()
+		viewport.add_child(hud)
+		await fixture.process_frames(2)
+		for panel: Control in [hud.status_panel, hud.instruction_panel]:
+			var rect: Rect2 = panel.get_global_rect()
+			assertions.is_true(rect.position.x >= 0.0 and rect.position.y >= 0.0, "panel origin must remain visible at %s" % viewport_size)
+			assertions.is_true(rect.end.x <= viewport_size.x and rect.end.y <= viewport_size.y, "panel must not clip at %s" % viewport_size)
+		for control in hud.root_control.find_children("*", "Control", true, false):
+			assertions.equal(control.mouse_filter, Control.MOUSE_FILTER_IGNORE, "HUD control %s must not intercept gameplay mouse input" % control.name)
+		assertions.equal(hud.root_control.mouse_filter, Control.MOUSE_FILTER_IGNORE, "HUD root must not intercept gameplay mouse input")
+		viewport.queue_free()
+		await fixture.process_frames(1)
+	return true

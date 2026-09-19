@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="PlayerTuning" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/data/schema/player_tuning.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+walk_speed = 3.2
+fov = 70.0
+mouse_sensitivity = 0.0022
+stick_look_speed = 2.2
+stick_deadzone = 0.18
+strafe_speed = 2.9
+backpedal_speed = 2.5
+acceleration = 10.0
+max_hp = 100.0
+max_stamina = 100.0
+attack_stamina_cost = 25.0
+dodge_stamina_cost = 30.0
+guard_drain_per_second = 10.0
+stamina_recovery_delay = 0.35
+stamina_full_recovery_seconds = 2.75
+attack_windup_seconds = 0.22
+attack_active_seconds = 0.12
+attack_recovery_seconds = 0.46
+attack_damage = 34.0
+attack_range = 2.25
+attack_arc_degrees = 70.0
+hit_confirm_seconds = 0.24
+viewmodel_free_position = Vector3(0.43, -0.43, -0.72)
+viewmodel_free_rotation_degrees = Vector3(-18, 4, -18)
+viewmodel_windup_position = Vector3(0.53, -0.31, -0.62)
+viewmodel_windup_rotation_degrees = Vector3(-42, 18, -58)
+viewmodel_active_position = Vector3(-0.2, -0.16, -0.75)
+viewmodel_active_rotation_degrees = Vector3(14, -20, 72)
+viewmodel_recovery_position = Vector3(0.34, -0.49, -0.7)
+viewmodel_recovery_rotation_degrees = Vector3(-10, 5, 8)
+viewmodel_guard_position = Vector3(-0.02, -0.34, -0.78)
+viewmodel_guard_rotation_degrees = Vector3(-6, -6, -18)
+viewmodel_guard_broken_position = Vector3(0.32, -0.68, -0.78)
+viewmodel_guard_broken_rotation_degrees = Vector3(30, 15, 38)
+viewmodel_hurt_position = Vector3(0.55, -0.57, -0.64)
+viewmodel_hurt_rotation_degrees = Vector3(24, 8, -42)
+dodge_distance = 2.4
+dodge_move_seconds = 0.34
+dodge_iframe_seconds = 0.20
+dodge_total_recovery_seconds = 0.75
+guard_damage_reduction = 0.8
+guard_impact_stamina_cost = 10.0
+guard_move_multiplier = 0.4
+guard_break_seconds = 0.7
+guard_block_recoil_seconds = 0.18
+player_hurt_seconds = 0.35
+damage_feedback_seconds = 0.55
