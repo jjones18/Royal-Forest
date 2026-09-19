@@ -4,7 +4,7 @@ A first-person dungeon crawler prototype inspired by FromSoftware's *King's Fiel
 (1994): slow deliberate first-person exploration, sprite enemies in 3D space,
 atmosphere over exposition.
 
-**Status:** M2b.1 is complete: the accepted M2b healing economy is followed by a standalone crouch stance/LOS mechanic with deterministic camera/capsule transitions, headroom-safe standing and dodging, low-cover concealment, 40% movement, input/HUD/telemetry coverage, and focused mutation gates. M2c remains not started: living-tree/checkpoint/death-respawn/save-load and ordinary-enemy reset are still open, as are M2d+ inventory and authored M2e route production.
+**Status:** M2c is complete. The gray-box now has an interactable living-tree checkpoint with physical LOS cover, full renewable-resource refill, ordinary-enemy reset, death/respawn, versioned schema-v1 save/load, atomic replacement, rolling-backup recovery, and visible success/failure feedback. M2d attributes, inventory/equipment, settings persistence, and map foundation remain open before authored M2e route production.
 
 Green pursuit and recovery re-aim rapidly (540°/s); orange windup permits only slow limited turning (45°/s); only the red active strike is direction-committed (0°/s).
 
@@ -19,7 +19,8 @@ We are building one GDD-traceable first playable before expanding to the full ga
 - [x] Mana owner and one free-aim Spectral Bolt (M2a): 100 max mana, 25 cost, 2.0 s delay, 2.5 mana/s; 30 damage, 16 m/s, 24 m range, 0.16 m radius
 - [x] Healing vessel model and committed interruption behavior (M2b): 3 charges, 40% max-HP healing, 0.80/0.08/0.52-second phases
 - [x] Crouch stance and low-cover LOS concealment (M2b.1): C / D-pad Down, 40% movement, headroom-safe stand/dodge
-- [ ] Checkpoints, persistence, attributes, inventory, and map foundation (M2c–M2d)
+- [x] Living-tree checkpoint, death/respawn, schema-v1 persistence, and ordinary-enemy reset (M2c)
+- [ ] Attributes, inventory/equipment, settings persistence, and map foundation (M2d)
 - [ ] Authored Root-Crown → Crowned Hunt → Hound-King → first Crown Seal route
 - [ ] 20–30 minute v0.1 first-playable package
 
@@ -49,6 +50,6 @@ Godot 4.4 lives at `~/.local/opt/godot`.
 ~/.local/opt/godot --path /mnt/storage/Git/royal-forest
 ```
 
-Controls: **WASD** move · **mouse** look · **left mouse** attack · **Q** Spectral Bolt · **F** healing vessel · **C** toggle crouch · **Space** dodge · **right mouse (hold)** guard · **R** reset · **Esc** release cursor · **F9** start/stop a diagnostic recording · **F10** visibly mark the issue moment. Controller casting uses the **right shoulder** button; healing uses **D-pad Up**; crouch uses **D-pad Down**.
+Controls: **WASD** move · **mouse** look · **left mouse** attack · **Q** Spectral Bolt · **F** healing vessel · **C** toggle crouch · **E** use living tree · **Space** dodge · **right mouse (hold)** guard · **R** reset/respawn · **Esc** release cursor · **F9** start/stop a diagnostic recording · **F10** visibly mark the issue moment. Controller casting uses **right shoulder**; healing uses **D-pad Up**; crouch uses **D-pad Down**; living-tree interaction uses **X / Square**; reset/respawn uses **Y / Triangle**.
 
 Run the complete automated gate with `./tools/verify.sh`. See [`playtest/m1/README.md`](playtest/m1/README.md) for the current 2–5 minute human retest.

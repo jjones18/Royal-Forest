@@ -9,7 +9,7 @@ EXPECTED=(
 	m1-neutral.png m1-low-stamina.png m1-enemy-tell.png m1-enemy-active.png
 	m1-attack-windup.png m1-attack-active.png m1-attack-recovery.png m1-hit-confirm.png
 	m1-guarding.png m1-blocked.png m1-guard-break.png m1-death.png
-	m2-crouched-behind-low-cover.png
+	m2-crouched-behind-low-cover.png m2-root-tree-saved.png m2-checkpoint-death.png
 )
 rm -rf -- "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"

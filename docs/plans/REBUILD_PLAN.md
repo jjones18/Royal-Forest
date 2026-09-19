@@ -242,7 +242,7 @@ git diff --check -- docs/plans/REQUIREMENTS.md docs/plans/REBUILD_PLAN.md
 
 ### M0.4 — Persistence boundary rescheduled to M2c
 
-Versioned save data was not implemented speculatively before persistent gameplay facts existed. M2c must create `game/save/save_data.gd`, `save_manager.gd`, `save_migrations.gd`, a temporary save store, and round-trip/corruption/atomic-replacement tests before any M2e route state depends on persistence.
+Versioned save data was not implemented speculatively before persistent gameplay facts existed. M2c now provides exact schema-v1 validation and temporary-file/rolling-backup recovery in `game/state/save_manager.gd`, with atomic-replacement, corruption, restart, and malformed-payload tests. A separate DTO/migration layer remains deliberately absent until a post-v1 migration policy exists; the first playable promises safe rejection/recovery, not cross-version migration.
 
 ### M0.5 — Input boundary completed; settings persistence rescheduled
 
@@ -342,7 +342,7 @@ The playable scene already lives under `game/world/`; `EnemyDefinition` has a st
 1. **M2a — complete:** spell schema/record and mana owner behavior; initial registry coverage for spells.
 2. **M2b — complete:** vessel model and committed interruption behavior.
 3. **M2b.1 — complete:** explicitly added v0.1 crouch stance with low-cover LOS concealment and no broad stealth subsystem.
-4. **M2c:** `WorldState`, `NarrativeState`, checkpoint/death/respawn, versioned `SaveManager`, save schema v1, and atomic/backup recovery tests.
+4. **M2c — complete:** `WorldState`, `NarrativeState`, checkpoint/death/respawn, versioned `SaveManager`, save schema v1, and atomic/backup recovery tests.
 5. **M2d:** `Inventory`, attributes/respec, settings persistence, map state, complete in-scope registry/validator.
 6. **M2e:** populate route-facing narrative content, then author Root-Crown/Crowned Hunt content; do not introduce a new persistence owner here.
 
@@ -352,7 +352,9 @@ Immutable tuning must be duplicated into per-session runtime state before settin
 
 **M2b implemented scope:** `HealingVessel` owns three charges independently from `PlayerStats`, computes healing as 40% of maximum HP, and exposes spend/refill operations. Healing uses 0.80-second windup, 0.08-second active, and 0.52-second recovery phases. A charge is spent when commitment starts; damage during windup cancels the pending heal and the charge remains lost. The active-entry heal event is preserved exactly once across large deltas; after it is consumed, later damage may enter `HURT` but cannot undo healing. F / D-pad Up input, live vessel HUD count, combat-playground reset refill, focused tests, and mutation gates are implemented. The 2026-09-18 human playtest accepted this healing economy for the first playable and unblocked M2c.
 
-**M2b.1 implemented scope:** The explicitly approved v0.1 scope change adds a standalone `PlayerStance` owner with C / D-pad Down toggle input, deterministic 1.62-to-0.95 m eye and 1.8-to-1.10 m capsule transitions, foot-planted collision, 40% movement, headroom-safe standing/dodging, live HUD and diagnostic telemetry, and stance-owned enemy LOS targeting. Standing remains visible behind the existing low block while crouching provides real concealment. Attack, cast, heal, and guard remain usable while crouched. Immediate and buffered dodges preserve the requested movement direction, revalidate headroom at actual commitment, spend stamina only after validation, and own standing stance until DODGE ends; crouch toggles during DODGE are ignored. The visual gate deletes and recreates its artifact directory and rejects any capture set other than the exact 13-file manifest. No visibility meter, sound AI, detection modifier, sneak attack, stamina cost, persistence, or broader stealth system was added. M2c remains the next unstarted milestone: living trees, checkpoint/death/respawn, versioned save/load, and ordinary-enemy reset.
+**M2b.1 implemented scope:** The explicitly approved v0.1 scope change adds a standalone `PlayerStance` owner with C / D-pad Down toggle input, deterministic 1.62-to-0.95 m eye and 1.8-to-1.10 m capsule transitions, foot-planted collision, 40% movement, headroom-safe standing/dodging, live HUD and diagnostic telemetry, and stance-owned enemy LOS targeting. Standing remains visible behind the existing low block while crouching provides real concealment. Attack, cast, heal, and guard remain usable while crouched. Immediate and buffered dodges preserve the requested movement direction, revalidate headroom at actual commitment, spend stamina only after validation, and own standing stance until DODGE ends; crouch toggles during DODGE are ignored. No visibility meter, sound AI, detection modifier, sneak attack, stamina cost, persistence, or broader stealth system was added.
+
+**M2c implemented scope:** `WorldState` and `NarrativeState` own deterministic stable-ID snapshots; `SaveManager` owns exact schema-v1 validation, atomic temporary-file replacement, one rolling backup, corrupt-primary recovery, and isolated per-profile paths. E / X activates the authored Root Tree only outside committed action/active combat, refills HP/stamina/mana/vessel, clears transient stance/action state, resets ordinary enemies, records the checkpoint, and reports save success or failure without corrupting the prior file. Death remains inert until R / Y, then respawns at the last activated tree (or original spawn before activation), refills renewable state, resets ordinary enemies, and retains durable world/narrative facts with no dropped-resource run. Startup restores the primary or valid backup into fresh owners. The physical trunk—not an AI sanctuary—occludes the spawn while its navigation footprint lets the live Shambler route around it. The exact visual manifest is now 15 files, adding root-tree-save and checkpoint-death states; the probe uses and removes an isolated `user://m2c-tests` profile. M2d remains next: attributes/respec, inventory/equipment, settings persistence, and map foundation.
 
 Green pursuit and recovery re-aim rapidly (540°/s); orange windup permits only slow limited turning (45°/s); only the red active strike is direction-committed (0°/s).
 
@@ -368,9 +370,9 @@ Green pursuit and recovery re-aim rapidly (540°/s); orange windup permits only 
 
 **Create:** living-tree actor, `game/app/game_session.gd`, checkpoint integration test.
 
-**Tests first:** activate checkpoint ID, rest refill, vessel refill, save indication, enemy reset, allocation/respec permission, death at zero HP, clear transient action/aggro state, respawn transform, retain unique pickup/shortcut/map/seal, no dropped-resource spawn, and restart-process load.
+**Tests first:** activate checkpoint ID, reject rest during committed action/active combat without mutation, refill renewable resources and vessel, show save indication, reset ordinary enemies, detect death at zero HP, clear transient action/aggro state, restore respawn transform, retain durable pickup/shortcut/map/seal and narrative facts, spawn no dropped resource, and load across a fresh process/session.
 
-**Transaction order:** validate checkpoint → leave combat → refill/reset renewable state → apply allocation/respec changes → snapshot owners → atomic save → display success. A failed save must report failure and retain the last valid file.
+**Transaction order:** validate checkpoint → require free/out-of-combat state → refill/reset renewable state → activate checkpoint → snapshot owners → atomic save → display success. A failed save reports failure and retains the last valid file while the activated tree remains the current-process respawn anchor. Attribute allocation/respec extends this transaction in M2d rather than being partially implemented here.
 
 ### M2.3 — Attributes, respec, map, and menus
 

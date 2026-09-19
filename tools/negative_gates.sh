@@ -40,6 +40,9 @@ PLAYER_ACTION_MACHINE="$MUTANT/game/player/action/player_action_machine.gd"
 HEALING_VESSEL="$MUTANT/game/player/healing_vessel.gd"
 PLAYER_CONTROLLER="$MUTANT/game/player/player_controller.gd"
 PLAYER_STANCE="$MUTANT/game/player/player_stance.gd"
+SAVE_MANAGER="$MUTANT/game/state/save_manager.gd"
+GAME_SESSION="$MUTANT/game/app/game_session.gd"
+LIVING_TREE="$MUTANT/game/world/living_tree.gd"
 VISUAL_SET_CHECKER="$MUTANT/tools/check_visual_capture_set.py"
 
 "$GODOT" --headless --path "$MUTANT" --import >"$TMP_ROOT/import.log" 2>&1
@@ -288,6 +291,135 @@ PY
 run_negative_gate "buffered dodge direction gate" "M2B1_BUFFERED_DODGE_DIRECTION" "$TMP_ROOT/buffered-dodge-direction.log"
 cp -- "$PROJECT/game/player/action/player_action_machine.gd" "$PLAYER_ACTION_MACHINE"
 
+python3 - "$PLAYER_CONTROLLER" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\tif actions.phase == PlayerActionMachine.Phase.DEAD:\n\t\tvelocity = Vector3.ZERO\n\t\tif command.release_mouse_pressed:\n\t\t\t_release_mouse()\n\t\tif command.restart_pressed:"
+new = "\tif false and actions.phase == PlayerActionMachine.Phase.DEAD:\n\t\tvelocity = Vector3.ZERO\n\t\tif command.release_mouse_pressed:\n\t\t\t_release_mouse()\n\t\tif command.restart_pressed:"
+if old not in text:
+    raise SystemExit("dead-body inert mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "dead-body inertness gate" "M2C_DEAD_BODY_INERT" "$TMP_ROOT/m2c-dead-body-inert.log"
+cp -- "$PROJECT/game/player/player_controller.gd" "$PLAYER_CONTROLLER"
+
+python3 - "$PLAYER_CONTROLLER" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\t\tif command.release_mouse_pressed:\n\t\t\t_release_mouse()\n\t\tif command.restart_pressed:"
+new = "\t\tif false and command.release_mouse_pressed:\n\t\t\t_release_mouse()\n\t\tif command.restart_pressed:"
+if old not in text:
+    raise SystemExit("dead cursor-release mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "dead cursor-release gate" "M2C_DEAD_CURSOR_RELEASE" "$TMP_ROOT/m2c-dead-cursor-release.log"
+cp -- "$PROJECT/game/player/player_controller.gd" "$PLAYER_CONTROLLER"
+
+python3 - "$SAVE_MANAGER" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "const SCHEMA_VERSION := 1"
+new = "const SCHEMA_VERSION := 2"
+if old not in text:
+    raise SystemExit("schema-version mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "save schema-version gate" "M2C_SCHEMA_VERSION_EXACT" "$TMP_ROOT/m2c-schema.log"
+cp -- "$PROJECT/game/state/save_manager.gd" "$SAVE_MANAGER"
+
+python3 - "$SAVE_MANAGER" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\tif inject_stop_before_replace_once:\n\t\tinject_stop_before_replace_once = false\n\t\t_remove_if_exists(temp_path)\n\t\treturn _fail(&\"interrupted\", \"injected interruption before atomic replace\")"
+new = "\tif false and inject_stop_before_replace_once:\n\t\tinject_stop_before_replace_once = false\n\t\t_remove_if_exists(temp_path)\n\t\treturn _fail(&\"interrupted\", \"injected interruption before atomic replace\")"
+if old not in text:
+    raise SystemExit("atomic interruption mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "atomic non-replace gate" "M2C_ATOMIC_NON_REPLACE" "$TMP_ROOT/m2c-atomic.log"
+cp -- "$PROJECT/game/state/save_manager.gd" "$SAVE_MANAGER"
+
+python3 - "$SAVE_MANAGER" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\tif backup[\"ok\"] and _apply_validated(backup, world, narrative):"
+new = "\tif false and backup[\"ok\"] and _apply_validated(backup, world, narrative):"
+if old not in text:
+    raise SystemExit("backup recovery mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "backup recovery gate" "M2C_BACKUP_RECOVERY" "$TMP_ROOT/m2c-backup.log"
+cp -- "$PROJECT/game/state/save_manager.gd" "$SAVE_MANAGER"
+
+python3 - "$GAME_SESSION" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\tif not save_manager.load_game(world_state, narrative_state):\n\t\t_report(&\"load_failed\", \"SAVE LOAD FAILED — STARTING FRESH\")\n\t\treturn false"
+new = "\tif not save_manager.load_game(world_state, narrative_state):\n\t\treturn false"
+if old not in text:
+    raise SystemExit("startup load-failure feedback mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "startup load-failure visibility gate" "M2C_STARTUP_LOAD_FAILURE_VISIBLE" "$TMP_ROOT/m2c-startup-load-failure.log"
+cp -- "$PROJECT/game/app/game_session.gd" "$GAME_SESSION"
+
+python3 - "$SAVE_MANAGER" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old_payload = '\t\t"playtime_seconds": playtime_seconds,\n\t}'
+new_payload = '\t\t"playtime_seconds": playtime_seconds,\n\t\t"transient_state": "PlayerStance dodge_commit_guard",\n\t}'
+old_expected = 'var expected := ["schema_version", "world_state", "narrative_state", "player", "playtime_seconds"]'
+new_expected = 'var expected := ["schema_version", "world_state", "narrative_state", "player", "playtime_seconds", "transient_state"]'
+if old_payload not in text or old_expected not in text:
+    raise SystemExit("transient exclusion mutation anchor missing")
+text = text.replace(old_payload, new_payload, 1).replace(old_expected, new_expected, 1)
+path.write_text(text)
+PY
+run_negative_gate "transient stance/action exclusion gate" "M2C_TRANSIENT_STANCE_EXCLUDED" "$TMP_ROOT/m2c-transient.log"
+cp -- "$PROJECT/game/state/save_manager.gd" "$SAVE_MANAGER"
+
+python3 - "$GAME_SESSION" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\tplayground.player.reset_renewable_state()\n\tplayground.reset_ordinary_enemies()\n\tworld_state.activate_checkpoint(definition.id)"
+new = "\tplayground.player.reset_renewable_state()\n\tworld_state.activate_checkpoint(definition.id)"
+if old not in text:
+    raise SystemExit("ordinary-enemy reset mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "living-tree ordinary-enemy reset gate" "M2C_ORDINARY_ENEMY_RESET" "$TMP_ROOT/m2c-enemy-reset.log"
+cp -- "$PROJECT/game/app/game_session.gd" "$GAME_SESSION"
+
+python3 - "$LIVING_TREE" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "\ttrunk_body.collision_layer = 1"
+new = "\ttrunk_body.collision_layer = 0"
+if old not in text:
+    raise SystemExit("living-tree collision-layer mutation anchor missing")
+path.write_text(text.replace(old, new, 1))
+PY
+run_negative_gate "living-tree player-collision gate" "M2C_ROOT_TREE_PLAYER_COLLISION" "$TMP_ROOT/m2c-tree-collision.log"
+cp -- "$PROJECT/game/world/living_tree.gd" "$LIVING_TREE"
+
 VISUAL_GATE_DIR="$TMP_ROOT/visual-set"
 mkdir -p "$VISUAL_GATE_DIR"
 printf 'expected' > "$VISUAL_GATE_DIR/expected.png"
@@ -306,4 +438,4 @@ if ! grep -Fq 'M2B1_VISUAL_SET_EXACT' "$TMP_ROOT/visual-set.log"; then
 fi
 printf 'PASS: exact visual capture set gate rejected the intentional stray file\n'
 
-printf 'NEGATIVE GATES: PASS (17 gates: 16 gameplay mutants + 1 visual manifest defect); live source was never modified\n'
+printf 'NEGATIVE GATES: PASS (26 gates: 25 gameplay/persistence mutants + 1 visual manifest defect); live source was never modified\n'

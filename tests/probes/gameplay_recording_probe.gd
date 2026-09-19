@@ -12,6 +12,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	var root := GAME_ROOT.instantiate()
+	root.restore_save_on_startup = false
 	add_child(root)
 	await get_tree().process_frame
 	await get_tree().process_frame

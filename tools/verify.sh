@@ -48,7 +48,9 @@ GODOT="$GODOT" "$SCRIPT_DIR/negative_gates.sh"
 run_checked "import" "$LOG_DIR/import.log" "" "$GODOT" --headless --path "$PROJECT" --import
 run_checked "test runner" "$LOG_DIR/tests.log" "RESULT: PASS" "$GODOT" --headless --path "$PROJECT" res://tests/test_runner.tscn
 run_checked "enemy tracking scenario" "$LOG_DIR/enemy-tracking.log" "TRACKING RESULT: PASS" "$GODOT" --headless --path "$PROJECT" res://tests/probes/enemy_tracking_probe.tscn
-run_checked "real-display mouse input" "$LOG_DIR/mouse-input.log" "PASS: test_game_root.test_mouse_motion_yaws_player_with_hud_present" xvfb-run -a "$GODOT" --path "$PROJECT" res://tests/test_runner.tscn
+run_checked "real-display mouse input" "$LOG_DIR/mouse-input.log" "PASS: test_game_root.test_dead_escape_releases_captured_mouse_without_reviving_or_moving" xvfb-run -a "$GODOT" --path "$PROJECT" res://tests/test_runner.tscn
+grep -Fq "PASS: test_game_root.test_mouse_motion_yaws_player_with_hud_present" "$LOG_DIR/mouse-input.log"
+run_checked "DEAD cursor release" "$LOG_DIR/dead-cursor-release.log" "DEAD CURSOR RELEASE PROBE: PASS" xvfb-run -a "$GODOT" --path "$PROJECT" res://tests/probes/dead_cursor_release_probe.tscn
 rm -rf "${TMPDIR:-/tmp}/royal-forest-recording-probe"
 run_checked "24 FPS diagnostic recording" "$LOG_DIR/recording.log" "RECORDING PROBE: PASS" xvfb-run -a "$GODOT" --path "$PROJECT" res://tests/probes/gameplay_recording_probe.tscn
 run_checked "M1 combat smoke" "$LOG_DIR/combat-smoke.log" "SMOKE RESULT: OK" "$GODOT" --headless --path "$PROJECT" res://tests/smoke/combat_smoke.tscn
@@ -67,9 +69,9 @@ printf 'PASS: bounded main-scene boot (exit %d)\n' "$boot_status"
 
 printf '\n== real-framebuffer visual probe ==\n'
 GODOT="$GODOT" "$SCRIPT_DIR/run_visual_probe.sh" 2>&1 | tee "$LOG_DIR/visual.log"
-grep -Fxq "VISUAL PROBE: PASS (13 captures in $PROJECT/artifacts/visual)" "$LOG_DIR/visual.log"
-grep -Fxq 'VISUAL CAPTURE SET: m1-neutral.png,m1-low-stamina.png,m1-enemy-tell.png,m1-enemy-active.png,m1-attack-windup.png,m1-attack-active.png,m1-attack-recovery.png,m1-hit-confirm.png,m1-guarding.png,m1-blocked.png,m1-guard-break.png,m1-death.png,m2-crouched-behind-low-cover.png' "$LOG_DIR/visual.log"
-grep -Fxq 'VISUAL CAPTURES: neutral, low-stamina, enemy-tell, enemy-active, attack-windup, attack-active, attack-recovery, hit-confirm, guarding, blocked, guard-break, death, crouched-behind-low-cover' "$LOG_DIR/visual.log"
+grep -Fxq "VISUAL PROBE: PASS (15 captures in $PROJECT/artifacts/visual)" "$LOG_DIR/visual.log"
+grep -Fxq 'VISUAL CAPTURE SET: m1-neutral.png,m1-low-stamina.png,m1-enemy-tell.png,m1-enemy-active.png,m1-attack-windup.png,m1-attack-active.png,m1-attack-recovery.png,m1-hit-confirm.png,m1-guarding.png,m1-blocked.png,m1-guard-break.png,m1-death.png,m2-crouched-behind-low-cover.png,m2-root-tree-saved.png,m2-checkpoint-death.png' "$LOG_DIR/visual.log"
+grep -Fxq 'VISUAL CAPTURES: neutral, low-stamina, enemy-tell, enemy-active, attack-windup, attack-active, attack-recovery, hit-confirm, guarding, blocked, guard-break, death, crouched-behind-low-cover, root-tree-saved, checkpoint-death' "$LOG_DIR/visual.log"
 
 printf '\n== whitespace check ==\n'
 git -C "$PROJECT" diff --check

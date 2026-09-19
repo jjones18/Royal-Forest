@@ -6,6 +6,7 @@ const GAME_ROOT := preload("res://game/app/game_root.tscn")
 
 func test_recording_writes_synchronized_jsonl_events(assertions: Assertions, fixture: RefCounted) -> bool:
 	var root := GAME_ROOT.instantiate()
+	root.restore_save_on_startup = false
 	fixture.add_node(root)
 	await fixture.physics_frames(2)
 	var recorder: GameplayRecorder = root.recorder

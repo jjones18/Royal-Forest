@@ -21,6 +21,12 @@ func _ready() -> void:
 	enemy = playground.primary_enemy
 	player.set_physics_process(false)
 	enemy.set_physics_process(false)
+	var trunk_body := playground.living_tree.get_node_or_null("TrunkBody") as StaticBody3D
+	if trunk_body == null:
+		failures.append("tracking fixture requires the production living-tree trunk")
+	else:
+		trunk_body.collision_layer = 0
+	await get_tree().physics_frame
 
 	_test_pillar_search_reveal()
 	_test_recorded_same_direction_search_route()

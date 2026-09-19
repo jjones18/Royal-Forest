@@ -2,6 +2,7 @@ class_name ResponsiveGameHud
 extends CanvasLayer
 
 const TUNING: PlayerTuning = preload("res://game/data/tuning/player_default.tres")
+const CHECKPOINT_FEEDBACK_SECONDS := 2.5
 
 var player: PlayerController
 var hp_bar: ProgressBar
@@ -103,12 +104,13 @@ func _process(delta: float) -> void:
 func _on_combat_feedback(kind: StringName, text: String) -> void:
 	feedback_label.text = text
 	feedback_label.visible = true
-	feedback_remaining = TUNING.hit_confirm_seconds if kind == &"hit" else TUNING.damage_feedback_seconds
+	feedback_remaining = CHECKPOINT_FEEDBACK_SECONDS if kind in [&"save_success", &"checkpoint_ready", &"backup_recovered", &"save_failed", &"load_failed", &"rest_blocked"] else (TUNING.hit_confirm_seconds if kind == &"hit" else TUNING.damage_feedback_seconds)
 	match kind:
 		&"hit": feedback_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.35))
 		&"blocked": feedback_label.add_theme_color_override("font_color", Color(0.45, 0.85, 1.0))
 		&"guard_broken": feedback_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.1))
-		&"healed": feedback_label.add_theme_color_override("font_color", Color(0.4, 1.0, 0.55))
+		&"healed", &"save_success", &"checkpoint_ready", &"backup_recovered": feedback_label.add_theme_color_override("font_color", Color(0.4, 1.0, 0.55))
+		&"save_failed", &"load_failed", &"rest_blocked": feedback_label.add_theme_color_override("font_color", Color(1.0, 0.65, 0.15))
 		_: feedback_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.15))
 
 
@@ -138,7 +140,7 @@ func _build_status_panel() -> PanelContainer:
 func _build_instruction_panel() -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(410, 166)
-	var label := _label("WASD / Left Stick: move  •  Mouse / Right Stick: look\nLMB / RT: attack  •  Q / Right Shoulder: Spectral Bolt\nF / D-pad Up: healing vessel  •  C / D-pad Down: crouch\nSpace / A: dodge  •  RMB / LT: guard  •  R / Y: reset")
+	var label := _label("WASD / Left Stick: move  •  Mouse / Right Stick: look\nLMB / RT: attack  •  Q / Right Shoulder: Spectral Bolt\nF / D-pad Up: healing vessel  •  C / D-pad Down: crouch\nE / X: living tree  •  Space / A: dodge  •  RMB / LT: guard  •  R / Y: respawn")
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_color_override("font_color", Color(0.95, 0.9, 0.7))
 	panel.add_child(label)

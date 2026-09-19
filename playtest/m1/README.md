@@ -22,8 +22,8 @@ When reporting the retest, include the resolution/window mode and whether keyboa
 
 ## Controls
 
-- Keyboard/mouse: **WASD** move, **mouse** look, **left mouse** attack, **Q** Spectral Bolt, **F** healing vessel, **C** toggle crouch, **Space** dodge, **right mouse (hold)** guard, **R** reset, **Esc** release mouse.
-- Controller: **left stick** move, **right stick** look, **right trigger** attack, **right shoulder** Spectral Bolt, **D-pad Up** healing vessel, **D-pad Down** toggle crouch, **A / Cross** dodge, **left trigger (hold)** guard, **Y / Triangle** reset.
+- Keyboard/mouse: **WASD** move, **mouse** look, **left mouse** attack, **Q** Spectral Bolt, **F** healing vessel, **C** toggle crouch, **E** use living tree, **Space** dodge, **right mouse (hold)** guard, **R** reset while alive / respawn while dead, **Esc** release mouse.
+- Controller: **left stick** move, **right stick** look, **right trigger** attack, **right shoulder** Spectral Bolt, **D-pad Up** healing vessel, **D-pad Down** toggle crouch, **X / Square** use living tree, **A / Cross** dodge, **left trigger (hold)** guard, **Y / Triangle** reset while alive / respawn while dead.
 - Diagnostics: **F9** starts/stops synchronized gameplay telemetry and local video capture; **F10** flashes and records an issue marker at the exact bad moment. Recording does not cap the game; the saved MP4 is converted to 24 FPS at up to 720p.
 
 ### Recording a hard-to-describe issue
@@ -42,8 +42,10 @@ The Linux capture records the game viewport only, not the desktop or other windo
 3. Hold guard through a strike. The raised shield and HUD should make guarding obvious. A normal block reduces damage by 80%, intentionally deals 20% chip damage (4.8 HP from the current Shambler), spends stamina, and displays `BLOCKED — … CHIP`. Exhaust stamina once to compare the distinct guard-break response.
 4. Break line of sight behind the tall pillar. The enemy should retain awareness briefly and hunt around the pillar toward your last-known position instead of stopping at a detour corner. First peek back out from the **same side you used to enter cover**; it should route around and re-engage. Repeat from the other side, then hide long enough for it to give up and begin walking home before stepping into clear view again. All three reveals should re-engage within detection range.
 5. At the short waist-high block, confirm the enemy sees you while standing. Press **C / D-pad Down** to crouch without changing position: the `STANCE CROUCHED` HUD text should appear, movement should slow, and continuous concealment should make the enemy enter search after its brief LOS grace. Stand to reveal yourself and confirm immediate reacquisition. Also try crouching beneath low clearance; standing and dodge must fail without clipping until you move clear. Attack, cast, heal, and guard should still work while crouched.
+6. Spend mana, stamina, HP, and vessel charges; damage or kill the Shambler, then return outside active combat and press **E / X (Square)** at the Root Tree. Confirm all renewable resources refill, the Shambler resets, and `ROOT TREE ACTIVE — SAVED` remains readable long enough to notice. Trying during a committed action or active enemy combat should reject the rest without changing resources or enemy state.
+7. Die after activating the tree. The game must remain in `DEAD` until **R / Y (Triangle)**, then return you to the authored tree checkpoint with full renewable state and a reset Shambler. Close and relaunch once; the checkpoint should load from disk. If testing corrupt-primary recovery as a developer, use the automated suite rather than damaging a personal save.
 
-## Five feedback questions
+## Seven feedback questions
 
 Answer **yes/no**, adding details where anything feels wrong:
 
@@ -52,6 +54,8 @@ Answer **yes/no**, adding details where anything feels wrong:
 3. Is it obvious that you are guarding and that successful blocks provide the accepted 80% reduction with 20% chip damage?
 4. Does the enemy hunt around the pillar toward your last-known position without stalling at a detour corner, then reacquire whether you reappear from the same or a different direction?
 5. Does crouching behind the short block provide understandable concealment without feeling like a full stealth system, and does the 40% movement speed feel appropriately deliberate?
+6. Is the Root Tree readable as a safe landmark, and are refill, enemy reset, save success, and blocked-rest feedback clear?
+7. Does death → R / Y respawn → relaunch feel reliable, with the expected checkpoint, full renewable state, reset ordinary enemy, and no dropped-resource run?
 
 Verdict: **Proceed to M2**, **Retune M1 again**, or **Rethink the core loop**.
 
@@ -70,7 +74,8 @@ Verdict: **Proceed to M2**, **Retune M1 again**, or **Rethink the core loop**.
 | Exploration-to-combat rhythm | Deferred to M2 route review | The gray-box room cannot prove a 20–30 minute exploration rhythm. Owner: M2e route playtest; this is not a blocker for M2a–M2d systems work. |
 | Circle-strafe, doorway, elevation exploits | Bounded follow-up | Pillar/detour exploit is fixed. Circle-strafe exploit is addressed by fast green re-aim, limited orange turning, and direction commitment only during red ACTIVE; human review is queued with M2. Doorway/elevation cases remain M2e route checks. |
 | M2b healing economy | Accepted for first playable | Human report: the new M2 additions are working great. Three charges, 40% max-HP healing, 0.80/0.08/0.52-second phases, and loss of a charge on windup interruption proceed into M2c; final M2 exit review may still retune proposed values. |
-| Crouch / low-cover concealment | New M2b.1 review | C / D-pad Down, 40% movement, low-cover LOS break, safe headroom behavior, and controller parity require the five-step retest above before M2 exit. |
+| Crouch / low-cover concealment | New M2b.1 review | C / D-pad Down, 40% movement, low-cover LOS break, safe headroom behavior, and controller parity require the retest above before M2 exit. |
+| M2c checkpoint / retry / persistence | New M2c review | E / X tree activation, refill/reset, semantic save feedback, DEAD-only R / Y checkpoint respawn, and relaunch persistence require the final two retest steps above before M2d begins. |
 
 Green pursuit and recovery re-aim rapidly (540°/s); orange windup permits only slow limited turning (45°/s); only the red active strike is direction-committed (0°/s). The 540°/s value intentionally defeats perpetual circle-strafing but may feel abrupt; compare it with a possible 360°/s retune during the combined review rather than changing the committed red window.
 

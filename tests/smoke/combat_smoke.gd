@@ -23,6 +23,12 @@ func _combat_collision_checks() -> void:
 	playground.primary_enemy.set_physics_process(false)
 	playground.primary_enemy.visible = false
 	playground.primary_enemy.collision_layer = 0
+	playground.player.rotation.y = 0.0
+	var trunk_body := playground.living_tree.get_node_or_null("TrunkBody") as StaticBody3D
+	check(trunk_body != null, "combat smoke fixture requires the production living-tree trunk")
+	if trunk_body != null:
+		trunk_body.collision_layer = 0
+	await get_tree().physics_frame
 	var visible := playground.spawn_enemy(Vector3(-0.65, 0, 2.75), "VisibleTarget")
 	var visible_second := playground.spawn_enemy(Vector3(-0.05, 0, 2.6), "VisibleTargetSecond")
 	var rear := playground.spawn_enemy(Vector3(0, 0, 5.7), "RearTarget")

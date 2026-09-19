@@ -6,13 +6,43 @@ const TUNING: PlayerTuning = preload("res://game/data/tuning/player_default.tres
 const ENEMY: EnemyDefinition = preload("res://game/data/enemies/shambler.tres")
 
 
-func test_restart_input_resets_player_and_enemy(assertions: Assertions, fixture: RefCounted) -> bool:
+func test_dead_player_remains_inert_under_production_physics(assertions: Assertions, fixture: RefCounted) -> bool:
+	var playground: CombatPlayground = PLAYGROUND.instantiate()
+	fixture.add_node(playground)
+	await fixture.physics_frames(2)
+	var player := playground.player
+	playground.primary_enemy.set_physics_process(false)
+	player.global_position = Vector3(6.0, 0.0, 6.0)
+	player.velocity = Vector3(3.0, 0.0, 0.0)
+	player.receive_enemy_damage(TUNING.max_hp * 2.0)
+	assertions.equal(player.actions.phase, PlayerActionMachine.Phase.DEAD)
+	var mouse_release_capture := {"count": 0}
+	player.mouse_released.connect(func() -> void: mouse_release_capture["count"] += 1)
+	var release_mouse := InputCommand.new()
+	release_mouse.release_mouse_pressed = true
+	player.simulate_command(release_mouse, 1.0 / 60.0)
+	assertions.equal(mouse_release_capture["count"], 1, "M2C_DEAD_CURSOR_RELEASE: DEAD command path must request cursor release")
+	var death_position := player.global_position
+	await fixture.physics_frames(10)
+	player.velocity = Vector3(0.0, 0.0, -3.0)
+	await fixture.physics_frames(10)
+	var horizontal_displacement := Vector2(
+		player.global_position.x - death_position.x,
+		player.global_position.z - death_position.z
+	).length()
+	assertions.is_true(horizontal_displacement < 0.001, "M2C_DEAD_BODY_INERT: DEAD player moved %.4f meters under production physics" % horizontal_displacement)
+	assertions.is_true(Vector2(player.velocity.x, player.velocity.z).length() < 0.001, "M2C_DEAD_BODY_INERT: DEAD player retained horizontal velocity")
+	assertions.equal(player.actions.phase, PlayerActionMachine.Phase.DEAD, "DEAD state must persist without restart input")
+	return true
+
+
+func test_restart_input_resets_dead_player_and_enemy(assertions: Assertions, fixture: RefCounted) -> bool:
 	var playground: CombatPlayground = PLAYGROUND.instantiate()
 	fixture.add_node(playground)
 	await fixture.physics_frames(2)
 	playground.player.set_physics_process(false)
 	playground.primary_enemy.set_physics_process(false)
-	playground.player.stats.hp = 1.0
+	playground.player.receive_enemy_damage(TUNING.max_hp * 2.0)
 	playground.primary_enemy.hp = 1.0
 	playground.primary_enemy.global_position += Vector3(2.0, 0.0, 0.0)
 	var command := InputCommand.new()
@@ -28,6 +58,8 @@ func test_directional_motion_uses_tuning_and_stops(assertions: Assertions, fixtu
 	var playground: CombatPlayground = PLAYGROUND.instantiate()
 	fixture.add_node(playground)
 	await fixture.physics_frames(2)
+	assertions.is_true(_disable_living_tree_collision(playground), "test isolation requires the production living-tree trunk")
+	await fixture.physics_frames(1)
 	var player := playground.player
 	player.set_physics_process(false)
 	var forward := _settle_motion(player, Vector2(0.0, -1.0))
@@ -101,6 +133,8 @@ func test_real_pillar_hide_reveal_and_return_reacquisition(assertions: Assertion
 	var playground: CombatPlayground = PLAYGROUND.instantiate()
 	fixture.add_node(playground)
 	await fixture.physics_frames(2)
+	assertions.is_true(_disable_living_tree_collision(playground), "test isolation requires the production living-tree trunk")
+	await fixture.physics_frames(1)
 	var player := playground.player
 	var enemy := playground.primary_enemy
 	player.set_physics_process(false)
@@ -156,6 +190,46 @@ func test_real_pillar_hide_reveal_and_return_reacquisition(assertions: Assertion
 	player.global_position = Vector3(0.0, 0.0, 4.5)
 	enemy._physics_process(1.0 / 60.0)
 	assertions.equal(enemy.state_machine.phase, EnemyStateMachine.Phase.PURSUIT, "IDLE enemy must reacquire visible player")
+	return true
+
+
+func test_shambler_routes_around_living_tree_during_pursuit(assertions: Assertions, fixture: RefCounted) -> bool:
+	var playground: CombatPlayground = PLAYGROUND.instantiate()
+	fixture.add_node(playground)
+	await fixture.physics_frames(2)
+	var player := playground.player
+	var enemy := playground.primary_enemy
+	player.set_physics_process(false)
+	enemy.set_physics_process(false)
+	enemy.reset_enemy()
+	assertions.is_false(enemy.has_line_of_sight_to_player(), "production living-tree trunk must occlude the spawn")
+	enemy.last_known_player_position = player.global_position
+	enemy.state_machine.set_awareness(true, true, false)
+	var start := enemy.global_position
+	for _step in range(45):
+		enemy._physics_process(1.0 / 60.0)
+	assertions.equal(enemy.state_machine.phase, EnemyStateMachine.Phase.PURSUIT, "tree-route proof must remain inside LOS grace")
+	assertions.is_true(absf(enemy.global_position.x - start.x) > 0.35, "Shambler must steer laterally around the real living-tree trunk")
+	assertions.is_true(enemy.global_position.z > start.z + 0.45, "Shambler must make forward progress around the living tree instead of jamming")
+	return true
+
+
+func test_player_capsule_cannot_pass_through_living_tree_trunk(assertions: Assertions, fixture: RefCounted) -> bool:
+	var playground: CombatPlayground = PLAYGROUND.instantiate()
+	fixture.add_node(playground)
+	await fixture.physics_frames(2)
+	var player := playground.player
+	player.set_physics_process(false)
+	player.global_position = CombatPlayground.ROOT_TREE_POSITION + Vector3(0.0, 0.0, 2.7)
+	player.rotation.y = 0.0
+	player.velocity = Vector3.ZERO
+	var move_forward := InputCommand.new()
+	move_forward.move = Vector2(0.0, -1.0)
+	for _step in range(120):
+		player.simulate_command(move_forward, 1.0 / 60.0)
+	var trunk_clearance := player.global_position.z - CombatPlayground.ROOT_TREE_POSITION.z
+	var minimum_clearance := LivingTree.TRUNK_COLLISION_RADIUS + PlayerController.COLLISION_RADIUS - 0.02
+	assertions.is_true(trunk_clearance >= minimum_clearance, "M2C_ROOT_TREE_PLAYER_COLLISION: player capsule crossed the physical living-tree trunk (clearance %.3f, minimum %.3f)" % [trunk_clearance, minimum_clearance])
 	return true
 
 
@@ -330,10 +404,13 @@ func test_playground_bolt_damages_once_spends_and_regenerates_mana(assertions: A
 	var playground: CombatPlayground = PLAYGROUND.instantiate()
 	fixture.add_node(playground)
 	await fixture.physics_frames(2)
+	assertions.is_true(_disable_living_tree_collision(playground), "test isolation requires the production living-tree trunk")
+	await fixture.physics_frames(1)
 	var player := playground.player
 	var enemy := playground.primary_enemy
 	player.set_physics_process(false)
 	enemy.set_physics_process(false)
+	player.rotation.y = 0.0
 	var hp_before := enemy.hp
 	var command := InputCommand.new()
 	command.cast_pressed = true
@@ -347,6 +424,14 @@ func test_playground_bolt_damages_once_spends_and_regenerates_mana(assertions: A
 	player.stats.advance(3.0)
 	assertions.is_true(player.stats.mana > 75.0, "mana must regenerate after the two-second post-cast delay")
 	return true
+
+func _disable_living_tree_collision(playground: CombatPlayground) -> bool:
+	var trunk_body := playground.living_tree.get_node_or_null("TrunkBody") as StaticBody3D
+	if trunk_body == null:
+		return false
+	trunk_body.collision_layer = 0
+	return true
+
 
 func _facing_error_degrees(enemy: EnemyController, target: Vector3) -> float:
 	var offset := target - enemy.global_position

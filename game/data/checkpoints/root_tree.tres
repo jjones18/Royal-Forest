@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="CheckpointDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/data/schema/checkpoint_definition.gd" id="1_checkpoint"]
+
+[resource]
+script = ExtResource("1_checkpoint")
+id = &"checkpoint.root_tree"
+display_name = "Root Tree"
+respawn_transform = Transform3D(0.819152, 0, -0.573576, 0, 1, 0, 0.573576, 0, 0.819152, 0, 0, 4.5)

@@ -216,9 +216,9 @@ Proposed pattern:
 | Look | Mouse | PROTOTYPE |
 | Attack | Left mouse | PROTOTYPE |
 | Crouch | C / D-pad Down | TARGET (M2b.1 implemented) |
-| Interact | E | PROTOTYPE |
+| Interact / living tree | E / X (Square) | TARGET (M2c implemented) |
 | Release cursor | Escape | PROTOTYPE |
-| Restart after death/win | R | PROTOTYPE |
+| Reset while alive / respawn while dead | R / Y (Triangle) | TARGET (M2c implemented) |
 
 **TARGET:** All gameplay and menu actions are remappable. Controller uses left stick to move, right stick to look, right trigger to attack, left trigger to block, face buttons for dodge/interact/use, and shoulder/D-pad inputs for equipment or spell selection. Exact bindings must be shown in-game and may be changed by the player.
 
@@ -367,13 +367,12 @@ Base mana is 100. Combat spells cost 25–45 mana. Regeneration begins about 2 s
 
 ### 8.3 Death
 
-- **PROTOTYPE:** Death currently shows a death panel and allows an immediate full scene restart.
-- **TARGET:** Death returns the player to their last activated checkpoint.
-- **TARGET:** Ordinary enemies reset on death.
-- **LOCKED:** Death does not create a dropped-resource recovery run.
-- **TARGET:** Lasting progression, unique items, opened shortcuts, and major world-state changes remain recorded.
-- **TARGET:** Living trees act as checkpoints. Resting or interacting with one records progress and restores health.
-- **PROPOSED:** Respawn with full HP, stamina, mana, and vessel charges. Ordinary enemies reset; bosses, unique items, opened shortcuts, major mechanisms, discoveries, map progress, and ending flags persist.
+- **M2c IMPLEMENTED:** Death enters an inert DEAD state until R / Y respawns at the last activated living tree; before activation it falls back to the authored opening spawn.
+- **M2c IMPLEMENTED:** Respawn refills HP, stamina, mana, and vessel charges, clears transient action/stance state, and resets ordinary enemies.
+- **LOCKED / M2c IMPLEMENTED:** Death does not create a dropped-resource recovery run.
+- **M2c IMPLEMENTED FOUNDATION:** Durable WorldState/NarrativeState facts—including unique pickups, shortcuts, seals, notes, truths, and other stable-ID sets—survive checkpoint respawn and schema-v1 reload as their authored content enters later milestones.
+- **M2c IMPLEMENTED:** The Root Tree is an interactable checkpoint with visible save feedback, physical LOS cover, and an authored respawn transform.
+- **M2c IMPLEMENTED / PROPOSED FOR LATER CONTENT:** Respawn uses full HP, stamina, mana, and vessel charges. Ordinary enemies reset; implemented stable-ID world/narrative facts persist, while bosses, authored unique items, mechanisms, discoveries, and map content enter with M2d–M2e.
 - **TARGET:** Living trees are activated by interaction and can be revisited voluntarily. Resting restores all renewable resources, saves, allocates attribute points, and resets ordinary enemies. Place them about 10–20 minutes apart and immediately before each regional guardian.
 - **PROPOSED:** The living trees survive because their roots sit outside or beneath the ancient protection's spiritual binding; this makes them both safe anchors and conduits for released memory.
 
@@ -848,15 +847,15 @@ Accessibility is part of the design, not a final polish task.
 
 **PROPOSED save model:**
 
-- Three player profiles, each with a current checkpoint save and one rolling backup
-- Autosave when resting at a living tree, defeating a guardian, completing a release step, acquiring a unique item, or changing an ending flag
-- Visible save indicator; atomic temporary-file replacement to reduce corruption risk
+- Three player profiles remain a later UI goal. **M2c implements one production profile path plus configurable isolated paths for tests**, with a current checkpoint save and one rolling backup.
+- **M2c implements autosave when resting at a living tree.** Guardian, release-step, unique-item, and ending-flag triggers enter with their owning authored systems.
+- **M2c implements visible success/failure indication and validated atomic temporary-file replacement; corrupt-primary startup falls back to the rolling backup.**
 - Optional single-use suspend save on quit outside combat, restoring exact player position/resources and then deleting itself after successful load
 - No manual save-anywhere, saving during active combat, New Game Plus, or promised cross-version migration for the first release
 
 ### 19.1 Minimum persistence inventory
 
-Persist attributes, equipment, inventory, unique pickups, activated trees, opened shortcuts, major mechanisms, defeated guardians, release steps, brother clues, discovered map areas, ending flags, settings, and playtime. Ordinary enemy deaths and transient combat state do not persist across rest/death. The checkpoint save stores the tree ID rather than an arbitrary scene path; the suspend save additionally stores exact player transform and renewable resources.
+Persist attributes, equipment, inventory, unique pickups, activated trees, opened shortcuts, major mechanisms, defeated guardians, release steps, brother clues, discovered map areas, ending flags, settings, and playtime as their owning systems enter scope. **M2c schema v1 already persists the implemented WorldState and NarrativeState stable-ID sets, current checkpoint ID, and playtime, while deliberately excluding stance, action commitment, renewable resources, and ordinary-enemy state.** Ordinary enemy deaths and transient combat state do not persist across rest/death. The checkpoint save stores the tree ID rather than an arbitrary scene path; the proposed suspend save additionally stores exact player transform and renewable resources.
 
 ---
 
@@ -907,9 +906,9 @@ Do not continue expanding the current `GameState` with unrelated booleans. Split
 
 - **PlayerStats:** HP, stamina, mana, attributes, derived values, damage, and recovery
 - **Inventory:** stable item IDs, equipment slots, vessel charges, spells, and key items
-- **WorldState:** activated trees, shortcuts, mechanisms, guardian defeats, pickups, map discovery, and region seals
-- **NarrativeState:** notes, echoes, learned truths, release steps, brother state, and ending evaluation
-- **SaveManager:** versioned serialization, atomic writes, backups, profiles, checkpoint saves, and suspend saves
+- **WorldState (M2c implemented):** activated trees, shortcuts, mechanisms, guardian defeats, pickups, map discovery, and region seals
+- **NarrativeState (M2c implemented):** notes, echoes, learned truths, release steps, brother state, and ending flags
+- **SaveManager (M2c foundation implemented):** exact schema-v1 serialization, atomic writes, one rolling backup, checkpoint saves, controlled validation/recovery, and configurable profile path; multi-profile and suspend-save UI remain later scope
 - **Content resources:** Godot `.tres` resources or equivalent typed data for weapons, spells, enemies, items, regions, encounters, and checkpoints
 
 Every persistent object needs a stable authored ID. Presentation nodes call simulation/state APIs rather than owning save-critical truth. Headless tests must cover stamina spending/recovery, damage/invulnerability, attribute formulas, healing interruption, inventory persistence, save/load round trips, and every ending-prerequisite combination.
@@ -1042,6 +1041,7 @@ No additional region, enemy family, major system, ending, or content category sh
 | 2026-09-18 | Use three vessel charges, 40% max-HP healing, and provisional 0.80/0.08/0.52-second phases; spend an accepted use immediately, so damage before the heal frame interrupts healing and loses the charge | TARGET / PROPOSED | Makes the drinking commitment and interruption cost explicit while retaining exact timings as playtest values |
 | 2026-09-18 | Accept the M2b healing economy for first-playable playtesting: the new healing additions work great, including 0.80/0.08/0.52 timing and loss of a charge when windup is interrupted | ACCEPTED FOR FIRST PLAYABLE / PROVISIONAL UNTIL M2 EXIT | Human playtest acceptance unblocks M2c while preserving the final M2 exit tuning review |
 | 2026-09-18 | Add crouch to v0.1 as a standalone stance/LOS mechanic using physical C and D-pad Down; retain broad stealth as out of scope | TARGET | Lets the player hide behind smaller authored cover without adding a stealth subsystem |
+| 2026-09-18 | Complete M2c with an interactable physical Root Tree, checkpoint death/respawn, ordinary-enemy reset, exact schema-v1 stable-ID persistence, atomic replacement, and one rolling backup | TARGET IMPLEMENTED | Establishes the retry/save foundation before attributes, inventory, map, or authored route content; transient combat state remains deliberately unsaved |
 | 2026-08-23 | Walk speed is 3.2 m/s | LOCKED | Approved after movement prototype review |
 | 2026-08-23 | Current mouse sensitivity and 70° FOV | LOCKED | Approved after movement prototype review |
 | 2026-08-23 | Use sprite enemies in a 3D world | LOCKED | Core visual/design DNA |

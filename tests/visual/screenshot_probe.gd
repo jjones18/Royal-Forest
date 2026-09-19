@@ -3,13 +3,17 @@ extends Node
 const GAME_ROOT := preload("res://game/app/game_root.tscn")
 const TUNING: PlayerTuning = preload("res://game/data/tuning/player_default.tres")
 const OUTPUT_DIR := "res://artifacts/visual"
+const VISUAL_SAVE_DIR := "user://m2c-tests/visual-probe"
 
 var game: Node
 var playground: CombatPlayground
 
 
 func _ready() -> void:
+	_cleanup_visual_save()
 	game = GAME_ROOT.instantiate()
+	game.save_path = "%s/profile.json" % VISUAL_SAVE_DIR
+	game.restore_save_on_startup = false
 	add_child(game)
 	for _frame in range(12):
 		await get_tree().process_frame
@@ -80,6 +84,19 @@ func _ready() -> void:
 	crouch.crouch_pressed = true
 	playground.player.simulate_command(crouch, 0.25)
 	signatures["crouched-behind-low-cover"] = await _capture("m2-crouched-behind-low-cover.png")
+	playground.player.reset_player()
+	playground.primary_enemy.reset_enemy()
+	playground.hud.feedback_remaining = 0.0
+	playground.hud.feedback_label.visible = false
+	var interact := InputCommand.new()
+	interact.interact_pressed = true
+	playground.player.simulate_command(interact, 0.0)
+	if game.session.status_kind != &"save_success":
+		_fail("root-tree interaction did not produce save success")
+		return
+	signatures["root-tree-saved"] = await _capture("m2-root-tree-saved.png")
+	playground.player.receive_enemy_damage(TUNING.max_hp * 2.0)
+	signatures["checkpoint-death"] = await _capture("m2-checkpoint-death.png")
 	var capture_names := signatures.keys()
 	for left_index in range(capture_names.size()):
 		for right_index in range(left_index + 1, capture_names.size()):
@@ -90,7 +107,19 @@ func _ready() -> void:
 				return
 	print("VISUAL CAPTURES: %s" % ", ".join(signatures.keys()))
 	print("VISUAL RESULT: OK")
+	_cleanup_visual_save()
 	get_tree().quit(0)
+
+
+func _cleanup_visual_save() -> void:
+	var absolute := ProjectSettings.globalize_path(VISUAL_SAVE_DIR)
+	if not DirAccess.dir_exists_absolute(absolute):
+		return
+	var directory := DirAccess.open(absolute)
+	if directory != null:
+		for filename in directory.get_files():
+			directory.remove(filename)
+	DirAccess.remove_absolute(absolute)
 
 
 func _capture(filename: String) -> Dictionary:
@@ -132,4 +161,5 @@ func _same_signature(left: Dictionary, right: Dictionary) -> bool:
 
 func _fail(message: String) -> void:
 	print("VISUAL RESULT: FAIL (%s)" % message)
+	_cleanup_visual_save()
 	get_tree().quit(1)

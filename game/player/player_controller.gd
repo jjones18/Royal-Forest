@@ -4,9 +4,13 @@ extends CharacterBody3D
 signal attack_requested
 signal cast_requested(origin: Vector3, direction: Vector3)
 signal restart_requested
+signal interact_requested
+signal mouse_released
 signal combat_feedback(kind: StringName, text: String)
 
 const TUNING: PlayerTuning = preload("res://game/data/tuning/player_default.tres")
+const COLLISION_RADIUS := 0.35
+
 var stats := PlayerStats.new(TUNING)
 var vessel := HealingVessel.new()
 var actions := PlayerActionMachine.new(stats, TUNING, null, vessel)
@@ -25,7 +29,7 @@ func _ready() -> void:
 	collision_shape = CollisionShape3D.new()
 	collision_shape.name = "PlayerCollision"
 	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.35
+	capsule.radius = COLLISION_RADIUS
 	capsule.height = PlayerStance.STANDING_CAPSULE_HEIGHT
 	collision_shape.shape = capsule
 	collision_shape.position.y = PlayerStance.STANDING_CAPSULE_HEIGHT * 0.5
@@ -51,6 +55,13 @@ func _physics_process(delta: float) -> void:
 	simulate_command(command, delta)
 
 func simulate_command(command: InputCommand, delta: float) -> void:
+	if actions.phase == PlayerActionMachine.Phase.DEAD:
+		velocity = Vector3.ZERO
+		if command.release_mouse_pressed:
+			_release_mouse()
+		if command.restart_pressed:
+			restart_requested.emit()
+		return
 	apply_command(command, delta)
 	if not stance.crouching and stance.current_capsule_height < PlayerStance.STANDING_CAPSULE_HEIGHT and not can_stand_safely():
 		stance.request_crouch()
@@ -78,9 +89,14 @@ func apply_command(command: InputCommand, delta: float) -> void:
 	look_pitch = clampf(look_pitch - look_delta.y, deg_to_rad(-85.0), deg_to_rad(85.0))
 	camera.rotation.x = look_pitch
 	if command.release_mouse_pressed:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_release_mouse()
 	if command.restart_pressed:
 		restart_requested.emit()
+		return
+	if actions.phase == PlayerActionMachine.Phase.DEAD:
+		return
+	if command.interact_pressed:
+		interact_requested.emit()
 	if command.attack_pressed:
 		actions.request(PlayerActionRequest.new(PlayerActionRequest.Kind.ATTACK))
 	if command.cast_pressed:
@@ -116,6 +132,8 @@ func apply_command(command: InputCommand, delta: float) -> void:
 func receive_enemy_damage(amount: float) -> float:
 	var was_guarding := actions.phase == PlayerActionMachine.Phase.GUARD
 	var applied := actions.receive_damage(amount)
+	if actions.phase == PlayerActionMachine.Phase.DEAD:
+		velocity = Vector3.ZERO
 	if applied <= 0.0:
 		return applied
 	if was_guarding:
@@ -124,6 +142,8 @@ func receive_enemy_damage(amount: float) -> float:
 		combat_feedback.emit(&"guard_broken", "GUARD BROKEN — %.1f CHIP" % applied)
 	elif was_guarding:
 		combat_feedback.emit(&"blocked", "BLOCKED — %.1f CHIP" % applied)
+	elif actions.phase == PlayerActionMachine.Phase.DEAD:
+		combat_feedback.emit(&"death", "DEAD — R / Y TO ROOT TREE")
 	else:
 		combat_feedback.emit(&"hurt", "HURT — %.1f" % applied)
 	return applied
@@ -131,6 +151,12 @@ func receive_enemy_damage(amount: float) -> float:
 func confirm_player_hit(hit_count: int, damage_each: float) -> void:
 	if hit_count > 0:
 		combat_feedback.emit(&"hit", "HIT  +%.0f%s" % [damage_each, "  x%d" % hit_count if hit_count > 1 else ""])
+
+
+func _release_mouse() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	mouse_released.emit()
+
 
 func los_target_position() -> Vector3:
 	return global_position + Vector3.UP * stance.current_eye_height
@@ -169,10 +195,14 @@ func _apply_stance_geometry() -> void:
 	camera.position.y = stance.current_eye_height
 
 
-func reset_player() -> void:
+func reset_renewable_state() -> void:
 	actions.reset()
 	vessel.refill()
 	stance.force_standing()
 	_apply_stance_geometry()
-	transform = spawn_transform
 	velocity = Vector3.ZERO
+
+
+func reset_player() -> void:
+	reset_renewable_state()
+	transform = spawn_transform
