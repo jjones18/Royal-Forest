@@ -1,6 +1,6 @@
-# Royal Forest M1 Retune Playtest
+# Royal Forest Current-Build Playtest — through M2c
 
-This is the required human gate before M2 content production. The retune addresses the first M1 playtest: weapon readability, enemy strike tracking, guard/chip communication, and instant de-aggro behind cover.
+This is the current human gate for the rebuild through M2c. It covers the accepted M1 combat baseline plus crouch/low-cover behavior, the living-tree checkpoint, blocked rest, death/respawn, and relaunch persistence.
 
 ## Launch
 

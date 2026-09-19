@@ -1,7 +1,8 @@
 class_name Player
 extends CharacterBody3D
 ## Royal Forest player — first-person, slow deliberate pacing.
-## Builds its own camera, sword viewmodel, and interaction ray in _ready.
+## Builds its own camera, weapon viewmodels, and interaction ray in _ready.
+## Supports the Weapons.CATALOG set: bow (draw & loose) + sword/spear/axe melee.
 
 const WALK_SPEED := 3.2          # deliberately slow — tension comes from pace
 const ACCELERATION := 10.0
@@ -9,22 +10,35 @@ const GRAVITY := 14.0
 const MOUSE_SENSITIVITY := 0.0022
 
 const INTERACT_RANGE := 2.6
-const ATTACK_RANGE := 2.4        # reach of the swing (sphere center distance)
-const ATTACK_RADIUS := 1.1       # swing sweep radius
-const ATTACK_ARC_COS := 0.35     # ~70 degree half-cone acceptance
-const ATTACK_DAMAGE := 34
-const SWING_TIME := 0.45
-const SWING_COOLDOWN := 0.75
+const ARROW_SPAWN_AHEAD := 0.9   # spawn point ahead of the camera (m)
+const DRAW_TIME := 0.55          # draw before the arrow is ready to loose
+const MIN_DRAW_FRACTION := 0.35  # releasing early still fires
+const RELEASE_COOLDOWN := 0.35   # nock-another-arrow pause after a shot
 
 var camera: Camera3D
 var _pitch := 0.0
+var _drawing := false            # bow is being drawn
+var _draw_t := 0.0
+var _swinging := false           # melee swing in progress
+var _swing_t := 0.0
+var _hit_done := false           # melee damage applied mid-swing
 var _cooldown := 0.0
-var _swinging := false
 var _bare_hand_msg_cd := 0.0
 var _ray: RayCast3D
 var _bob_t := 0.0
-var sword_holder: Node3D
-var _sword_rest := Transform3D()
+
+var weapon_holder: Node3D
+var _weapon_rest := Transform3D()
+var _bow_frames: Array[Sprite3D] = []   # idle + 3 draw stages
+var _melee_sprite: Sprite3D
+var _melee_tex_cache := {}   # weapon id -> Texture2D (avoid load() per tick)
+var _sword_len_scale := 1.0  # viewmodel blade-length scale for the sword
+
+
+## Stretch the melee sprite along the blade axis (local Y after the roll).
+func _apply_melee_scale(w: String) -> void:
+	var s := _sword_len_scale if w == "sword" else 1.0
+	_melee_sprite.scale = Vector3(1.0, s, 1.0)
 
 
 func _ready() -> void:
@@ -52,26 +66,48 @@ func _ready() -> void:
 	_ray.collision_mask = 1
 	camera.add_child(_ray)
 
-	_build_sword_viewmodel()
+	_build_weapon_viewmodel()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
-func _build_sword_viewmodel() -> void:
-	sword_holder = Node3D.new()
-	sword_holder.visible = false
-	camera.add_child(sword_holder)
-
+func _make_vm_sprite(tex_path: String) -> Sprite3D:
 	var spr := Sprite3D.new()
-	spr.texture = load("res://assets/sprites/sword.png")
+	spr.texture = load(tex_path)
 	spr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	spr.shaded = false
 	spr.no_depth_test = true      # never clip into walls
 	spr.render_priority = 10
-	spr.pixel_size = 0.0018       # 256 px -> ~0.46 m
-	spr.position = Vector3(0.44, -0.40, -0.66)
-	spr.rotation_degrees = Vector3(-6, -14, -14)
-	sword_holder.add_child(spr)
-	_sword_rest = sword_holder.transform
+	return spr
+
+
+func _build_weapon_viewmodel() -> void:
+	weapon_holder = Node3D.new()
+	weapon_holder.visible = false
+	camera.add_child(weapon_holder)
+
+	# --- bow: 4-frame Minecraft-style draw set ---
+	for path in ["res://assets/sprites/bow.png", "res://assets/sprites/bow_pull_1.png",
+			"res://assets/sprites/bow_pull_2.png", "res://assets/sprites/bow_pull_3.png"]:
+		var f := _make_vm_sprite(path)
+		f.pixel_size = 0.0018     # 256 px -> ~0.46 m
+		f.position = Vector3(0.34, -0.34, -0.66)
+		f.rotation_degrees = Vector3(-4, 0, -8)
+		f.visible = path.ends_with("bow.png")   # idle frame first
+		weapon_holder.add_child(f)
+		_bow_frames.append(f)
+
+	# --- melee viewmodels share one sprite slot; texture swaps per weapon ---
+	_melee_sprite = _make_vm_sprite("res://assets/sprites/sword.png")
+	_melee_sprite.pixel_size = 0.0018
+	_melee_sprite.position = Vector3(0.44, -0.40, -0.66)
+	_melee_sprite.rotation_degrees = Vector3(-6, -14, -14)
+	_melee_sprite.visible = false
+	weapon_holder.add_child(_melee_sprite)
+	# sword blade rendered 50% longer (scaled along the blade axis after roll)
+	_sword_len_scale = 1.5
+	_apply_melee_scale("sword")
+
+	_weapon_rest = weapon_holder.transform
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -83,26 +119,36 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseButton and event.pressed \
 			and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED  # recapture click does NOT swing
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED  # recapture click does NOT fire
 	elif event.is_action_pressed("attack"):
-		_try_attack()
+		_attack_pressed()
+	elif event.is_action_released("attack"):
+		_attack_released()
 	elif event.is_action_pressed("interact"):
 		_try_interact()
+	elif event.is_action_pressed("cast_fire"):
+		_cast("fire")
+	elif event.is_action_pressed("cast_frost"):
+		_cast("frost")
 
 
 func _physics_process(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)
+	_spell_cd = maxf(0.0, _spell_cd - delta)
 	_bare_hand_msg_cd = maxf(0.0, _bare_hand_msg_cd - delta)
-	if sword_holder != null:
-		sword_holder.visible = GameState.has_sword
+	if weapon_holder != null:
+		_update_viewmodel_visibility()
 
 	if not is_on_floor():
 		velocity.y -= GRAVITY * delta
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
-	velocity.x = move_toward(velocity.x, direction.x * WALK_SPEED, ACCELERATION * delta)
-	velocity.z = move_toward(velocity.z, direction.z * WALK_SPEED, ACCELERATION * delta)
+	# attacking/drawing slows you to half speed — committing to a shot is a risk
+	var busy := _drawing or _swinging
+	var speed := WALK_SPEED * (0.5 if busy else 1.0)
+	velocity.x = move_toward(velocity.x, direction.x * speed, ACCELERATION * delta)
+	velocity.z = move_toward(velocity.z, direction.z * speed, ACCELERATION * delta)
 
 	move_and_slide()
 
@@ -139,65 +185,187 @@ func _try_interact() -> void:
 		col.interact()
 
 
-# ------------------------------------------------------------------- combat
+# --------------------------------------------------------------------- combat
 
-func _try_attack() -> void:
-	if GameState.dead or GameState.game_won or _swinging or _cooldown > 0.0:
+func _is_ranged() -> bool:
+	if GameState.weapon == "":
+		return false
+	return Weapons.CATALOG[GameState.weapon]["ranged"] as bool
+
+
+func _attack_pressed() -> void:
+	if GameState.dead or GameState.game_won or _drawing or _swinging \
+			or _cooldown > 0.0:
 		return
-	if not GameState.has_sword:
+	if GameState.weapon == "":
 		if _bare_hand_msg_cd <= 0.0:
-			GameState.say("Empty hands. I need a weapon.")
+			GameState.say("No weapon but my hands.")
 			_bare_hand_msg_cd = 2.0
 		return
-	_swinging = true
-	_cooldown = SWING_COOLDOWN
-	_animate_swing()
-	await get_tree().create_timer(SWING_TIME * 0.35).timeout
-	if not is_inside_tree():
-		return
-	_apply_hit()
-	await get_tree().create_timer(SWING_TIME * 0.65).timeout
-	if not is_inside_tree():
-		return
-	_swinging = false
+	if _is_ranged():
+		_drawing = true
+		_draw_t = 0.0
+	else:
+		_swinging = true
+		_swing_t = 0.0
+		_hit_done = false
+		_cooldown = Weapons.CATALOG[GameState.weapon]["cooldown"]
 
 
-func _animate_swing() -> void:
-	sword_holder.transform = _sword_rest
+func _attack_released() -> void:
+	if _drawing:
+		_drawing = false
+		# weapon changed (or vanished) mid-draw — no shot
+		if GameState.dead or GameState.game_won or not _is_ranged():
+			return
+		if _draw_t < DRAW_TIME * MIN_DRAW_FRACTION:
+			return   # tapped too fast — treat as a mispress
+		_cooldown = RELEASE_COOLDOWN
+		_fire_arrow()
+
+
+func _fire_arrow() -> void:
+	var forward := -camera.global_transform.basis.z
+	var origin := camera.global_position + forward * ARROW_SPAWN_AHEAD
+	var arrow := Arrow.new()
+	arrow.position = origin
+	# aim slightly up so gravity drop crosses the aim point at ~10 m
+	arrow.velocity = forward.normalized() * Arrow.SPEED \
+			+ Vector3.UP * Arrow.GRAVITY * (10.0 / Arrow.SPEED) * 0.5
+	get_tree().current_scene.add_child(arrow)
+
+	# quick release kick on the viewmodel
+	weapon_holder.transform = _weapon_rest
 	var tw := create_tween()
-	tw.tween_property(sword_holder, "rotation_degrees",
-			Vector3(-30, 10, 74), SWING_TIME * 0.4)\
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(sword_holder, "rotation_degrees",
-			Vector3(0, 0, 0), SWING_TIME * 0.6)\
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(weapon_holder, "position:z", _weapon_rest.origin.z + 0.05,
+			0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(weapon_holder, "position", _weapon_rest.origin, 0.18)
 
 
-func _apply_hit() -> void:
+# --------------------------------------------------------------------- spells
+
+var _spell_cd := 0.0
+
+const SPELL_COOLDOWN := 0.6
+
+
+## Cast a spell bolt. Costs mana; works with any weapon (or none) in hand.
+func _cast(kind: String) -> void:
+	if GameState.dead or GameState.game_won or _drawing or _swinging:
+		return
+	if _spell_cd > 0.0:
+		return
+	var cost: float = GameState.FIREBALL_COST if kind == "fire" else GameState.FROST_COST
+	if not GameState.try_spend_mana(cost):
+		GameState.say("Not enough mana.")
+		return
+	_spell_cd = SPELL_COOLDOWN
+	var forward := -camera.global_transform.basis.z
+	var origin := camera.global_position + forward * ARROW_SPAWN_AHEAD
+	var bolt := SpellBolt.make(origin, forward, kind)
+	get_tree().current_scene.add_child(bolt)
+
+
+func _update_viewmodel_visibility() -> void:
+	var w: String = GameState.weapon
+	weapon_holder.visible = w != ""
+	if w == "":
+		return
+	var ranged: bool = Weapons.CATALOG[w]["ranged"]
+	# don't fight _process over draw frames while a draw is in progress
+	for f in _bow_frames:
+		f.visible = ranged and not _drawing and f.get_index() == 0
+	_melee_sprite.visible = w != "" and not ranged
+	if not ranged and w != "":
+		if not _melee_tex_cache.has(w):
+			_melee_tex_cache[w] = load("res://assets/sprites/%s.png" % w)
+		_melee_sprite.texture = _melee_tex_cache[w]
+		_apply_melee_scale(w)
+
+
+func _process(delta: float) -> void:
+	if weapon_holder == null:
+		return
+	# dead or disarmed mid-attack: cancel any in-flight swing/draw cleanly
+	if GameState.dead or GameState.game_won or GameState.weapon == "":
+		_drawing = false
+		_swinging = false
+		_set_bow_frames_visible(false)
+		weapon_holder.transform = _weapon_rest
+		return
+
+	var ranged := _is_ranged()
+	if _drawing:
+		_draw_t += delta
+		var f := clampf(_draw_t / DRAW_TIME, 0.0, 1.0)
+		# Minecraft-style frame stages at ~1/3 thresholds
+		var stage := mini(int(f * 3.0), 2) + 1   # 1..3
+		for i in _bow_frames.size():
+			_bow_frames[i].visible = i == stage
+		# arrow tracks the aim: yaw the sprite with camera pitch so the nocked
+		# arrow points where the player is looking (down = tip dips, up = rises)
+		for fr in _bow_frames:
+			fr.rotation_degrees.y = -rad_to_deg(camera.rotation.x) * 0.6
+		# subtle whole-bow pull toward the shoulder as tension builds
+		var target := _weapon_rest.origin + Vector3(-0.05 * f, -0.015 * f, 0.06 * f)
+		weapon_holder.position = weapon_holder.position.lerp(target, 12.0 * delta)
+	elif _swinging and not ranged:
+		_swing_t += delta
+		var info: Dictionary = Weapons.CATALOG[GameState.weapon]
+		var st: float = info["swing_time"]
+		var t := clampf(_swing_t / st, 0.0, 1.0)
+		# wind up-back, then sweep through; damage lands at 35% of the swing
+		var ang := lerpf(0.0, 74.0, smoothstep(0.0, 1.0, t))
+		var rest_euler := _weapon_rest.basis.get_euler()
+		weapon_holder.rotation = Vector3(rest_euler.x, rest_euler.y,
+				rest_euler.z - deg_to_rad(ang))
+		if not _hit_done and t >= 0.35:
+			_hit_done = true
+			_apply_melee_hit(info)
+		if _swing_t >= st:
+			_swinging = false
+			weapon_holder.transform = _weapon_rest
+	else:
+		# settle back to rest — bow frames only when actually holding the bow
+		_set_bow_frames_visible(ranged, 0)
+		weapon_holder.transform = weapon_holder.transform.interpolate_with(
+				_weapon_rest, minf(10.0 * delta, 1.0))
+
+
+## Single source of truth for which bow frames show (none when melee/unarmed).
+func _set_bow_frames_visible(show: bool, stage: int = 0) -> void:
+	for i in _bow_frames.size():
+		_bow_frames[i].visible = show and i == stage
+
+
+## Melee hit: sphere sweep in front of the camera inside an acceptance cone.
+## Reach/arc/damage come from the weapon's catalog entry.
+func _apply_melee_hit(info: Dictionary) -> void:
+	if GameState.dead or GameState.game_won or _is_ranged():
+		return
 	var forward := -camera.global_transform.basis.z
 	forward.y = 0.0
 	forward = forward.normalized()
-	var center := camera.global_position + forward * ATTACK_RANGE
+	var reach: float = info["reach"]
+	# band from 1.4 m out to `reach`; clamped so short weapons keep a valid sphere
+	var radius: float = maxf(0.15, reach - 1.4)
+	var center := camera.global_position + forward * (reach - radius)
 	center.y -= 1.2  # bring sweep down to torso height (camera is at 1.6)
 
 	var params := PhysicsShapeQueryParameters3D.new()
 	var sphere := SphereShape3D.new()
-	sphere.radius = ATTACK_RADIUS
+	sphere.radius = radius
 	params.shape = sphere
 	params.transform = Transform3D(Basis.IDENTITY, center)
 	params.collision_mask = 4  # enemies layer
 	params.exclude = [get_rid()]
 
-	var hits := get_world_3d().direct_space_state.intersect_shape(params, 8)
-	var struck_any := false
+	var hits := get_world_3d().direct_space_state.intersect_shape(params, 16)
 	for hit in hits:
 		var c: Object = hit["collider"]
 		if c == null or not c.has_method("take_damage"):
 			continue
 		var to_c: Vector3 = c.global_position - global_position
 		to_c.y = 0.0
-		if to_c.length() < 0.01 or forward.dot(to_c.normalized()) >= ATTACK_ARC_COS:
-			c.take_damage(ATTACK_DAMAGE, global_position)
-			struck_any = true
-	if struck_any:
-		GameState.say("")  # clear stale hints quickly (hit feedback comes from flash/knockback)
+		if to_c.length() < 0.01 or forward.dot(to_c.normalized()) >= info["arc_cos"]:
+			c.take_damage(info["damage"], global_position)

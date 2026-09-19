@@ -88,6 +88,17 @@ open_guide() {
 	open_path "$PROJECT/playtest/m1/README.md"
 }
 
+current_build_label() {
+	local branch commit
+	branch="$(git -C "$PROJECT" branch --show-current 2>/dev/null || true)"
+	commit="$(git -C "$PROJECT" rev-parse --short HEAD 2>/dev/null || true)"
+	if [[ -n "$branch" && -n "$commit" ]]; then
+		printf '%s @ %s' "$branch" "$commit"
+	else
+		printf 'unversioned checkout'
+	fi
+}
+
 open_recordings() {
 	mkdir -p "$RECORDINGS_DIR"
 	open_path "$RECORDINGS_DIR"
@@ -177,10 +188,10 @@ case "${1:-}" in
 		if ! command -v kdialog >/dev/null 2>&1; then
 			play_game
 		fi
-		choice="$(kdialog --title "Royal Forest Testing" --menu "What would you like to do?" \
-			play "Play the current M1 retest" \
+		choice="$(kdialog --title "Royal Forest Testing" --menu "Current checkout: $(current_build_label)\n\nWhat would you like to do?" \
+			play "Play the current build" \
 			tests "Run every automated verification check" \
-			guide "Open the M1 retest instructions" \
+			guide "Open the current playtest guide" \
 			recordings "Open diagnostic recordings" \
 			package "Package newest recording for sharing" \
 			delete "Delete diagnostic recordings (preview + confirm)")" || exit 0

@@ -2,6 +2,8 @@ extends CanvasLayer
 ## HUD: health bar, hint line, message log, damage vignette, death/win screens.
 
 @onready var hp_bar: ColorRect = $Root/HpBack/HpFill
+@onready var mana_bar: ColorRect = $Root/ManaBack/ManaFill
+@onready var mana_label: Label = $Root/ManaLabel
 @onready var hp_label: Label = $Root/HpLabel
 @onready var hint_label: Label = $Root/Hint
 @onready var msg_label: Label = $Root/Message
@@ -14,12 +16,14 @@ var _msg_t := 0.0
 
 func _ready() -> void:
 	GameState.hp_changed.connect(_on_hp_changed)
+	GameState.mana_changed.connect(_on_mana_changed)
 	GameState.message.connect(_on_message)
 	GameState.hint_changed.connect(_on_hint)
 	GameState.hurt.connect(_flash_vignette)
 	GameState.died.connect(_on_died)
 	GameState.won.connect(_on_won)
 	_on_hp_changed(GameState.hp, GameState.MAX_HP)
+	_on_mana_changed(GameState.mana, GameState.MAX_MANA)
 	death_panel.visible = false
 	win_panel.visible = false
 
@@ -41,6 +45,17 @@ func _input(event: InputEvent) -> void:
 func _on_hp_changed(hp: int, max_hp: int) -> void:
 	hp_bar.size.x = 300.0 * float(hp) / float(max_hp)
 	hp_label.text = "HP %d / %d" % [hp, max_hp]
+
+
+func _on_mana_changed(mana: float, max_mana: float) -> void:
+	mana_bar.size.x = 300.0 * mana / float(max_mana)
+	mana_label.text = "MP %d" % int(mana)
+
+
+func _flash_mana_bar() -> void:
+	mana_bar.color = Color(0.75, 0.2, 0.2, 1)   # flash red when too poor
+	var tw := create_tween()
+	tw.tween_property(mana_bar, "color", Color(0.16, 0.35, 0.75, 1), 0.4)
 
 
 func _on_message(text: String) -> void:

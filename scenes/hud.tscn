@@ -45,6 +45,41 @@ offset_bottom = 16.0
 mouse_filter = 2
 color = Color(0.62, 0.16, 0.14, 1)
 
+[node name="ManaBack" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -26.0
+offset_right = 324.0
+offset_bottom = -12.0
+grow_vertical = 0
+mouse_filter = 2
+color = Color(0.08, 0.08, 0.09, 0.85)
+
+[node name="ManaFill" type="ColorRect" parent="Root/ManaBack"]
+layout_mode = 0
+offset_right = 300.0
+offset_bottom = 14.0
+mouse_filter = 2
+color = Color(0.16, 0.35, 0.75, 1)
+
+[node name="ManaLabel" type="Label" parent="Root"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 328.0
+offset_top = -28.0
+offset_right = 470.0
+offset_bottom = -10.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.6, 0.78, 1.0, 1)
+theme_override_font_sizes/font_size = 13
+text = "MP 100"
+mouse_filter = 2
+
 [node name="HpLabel" type="Label" parent="Root"]
 layout_mode = 1
 anchors_preset = 2

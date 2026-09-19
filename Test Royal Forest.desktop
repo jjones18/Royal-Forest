@@ -2,7 +2,7 @@
 Type=Application
 Version=1.0
 Name=Test Royal Forest
-Comment=Play, test, record, package, or clean up Royal Forest diagnostics
+Comment=Play and test the current checked-out Royal Forest build
 Icon=applications-games
 Exec=/mnt/storage/Git/royal-forest/tools/testing_menu.sh
 Path=/mnt/storage/Git/royal-forest
@@ -20,7 +20,7 @@ Name=Run All Automated Tests
 Exec=/mnt/storage/Git/royal-forest/tools/testing_menu.sh --tests
 
 [Desktop Action Guide]
-Name=Open M1 Playtest Guide
+Name=Open Current Playtest Guide
 Exec=/mnt/storage/Git/royal-forest/tools/testing_menu.sh --guide
 
 [Desktop Action Recordings]
